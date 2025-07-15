@@ -1,0 +1,64 @@
+nextflow.enable.dsl=2
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// Keep commented out as before
+// include { paramsSummaryMap } from 'plugin/nf-schema'
+include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
+
+// Keep commented out as before
+// include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_charla_nf_pipeline'
+
+include { generate_readmers_kmc } from '../modules/local/generate_readmers_kmc.nf'
+include { generate_histogram_kmc } from '../modules/local/generate_histogram_kmc.nf'
+include { get_counts_kmc } from '../modules/local/get_counts_kmc.nf'
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    RUN MAIN WORKFLOW
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+workflow CHARLA_NF {
+    take:
+    input_tuple // input channel
+
+    main:
+    // Generate k-mer database files
+    input_tuple | generate_readmers_kmc
+    
+    // Generate histogram from k-mer database
+    generate_readmers_kmc.out | generate_histogram_kmc
+    
+    // Prepare input for get_counts_kmc by adding the original fastq file
+    // Combine the kmc output with the original input to get all required data
+    // For get_counts_kmc, we need to add the original fastq file back
+    counts_input = generate_readmers_kmc.out
+        .cross(input_tuple)
+        .filter { kmc_output, original_input -> 
+            kmc_output[2] == original_input[1] && kmc_output[3] == original_input[2] }
+        .map { kmc_output, original_input -> 
+            tuple(kmc_output[0], kmc_output[1], original_input[0], kmc_output[2], kmc_output[3]) }
+    
+    // Debug: Check what goes into get_counts_kmc
+    counts_input.view { "Counts input: $it" }
+
+ 
+    // Get k-mer counts for reads
+    counts_input | get_counts_kmc
+
+    emit:
+    kmc_pre = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_pre }
+    kmc_suf = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_suf }
+    histo = generate_histogram_kmc.out.histo
+    counts = get_counts_kmc.out
+}
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    THE END
+*/

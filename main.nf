@@ -12,49 +12,13 @@
     IMPORT FUNCTIONS / MODULES / SUBWORKFLOWS / WORKFLOWS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-
-include { CHARLA_NF  } from './workflows/charla_nf'
+include { CHARLA_NF } from './workflows/charla_nf'
 include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_charla_nf_pipeline'
-include { PIPELINE_COMPLETION     } from './subworkflows/local/utils_nfcore_charla_nf_pipeline'
-include { getGenomeAttribute      } from './subworkflows/local/utils_nfcore_charla_nf_pipeline'
+include { PIPELINE_COMPLETION } from './subworkflows/local/utils_nfcore_charla_nf_pipeline'
 
 /*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    GENOME PARAMETER VALUES
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
 
-// TODO nf-core: Remove this line if you don't need a FASTA file
-//   This is an example of how to use getGenomeAttribute() to fetch parameters
-//   from igenomes.config using `--genome`
-params.fasta = getGenomeAttribute('fasta')
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    NAMED WORKFLOWS FOR PIPELINE
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-//
-// WORKFLOW: Run main analysis pipeline depending on type of input
-//
-workflow JACGONISA_CHARLA_NF {
-
-    take:
-    samplesheet // channel: samplesheet read in from --input
-
-    main:
-
-    //
-    // WORKFLOW: Run pipeline
-    //
-    CHARLA_NF (
-        samplesheet
-    )
-    emit:
-    multiqc_report = CHARLA_NF.out.multiqc_report // channel: /path/to/multiqc_report.html
-}
-/*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,28 +35,44 @@ workflow {
         params.validate_params,
         params.monochrome_logs,
         args,
+	[],
         params.outdir,
-        params.input
+        params.reads,
+	params.sample_id
     )
 
+// Add these two lines immediately after the PIPELINE_INITIALISATION call
+    log.info "DEBUG: PIPELINE_INITIALISATION subworkflow has finished."
+    // log.info "DEBUG: Is input_tuple channel empty? ${PIPELINE_INITIALISATION.out.input_tuple.isEmpty()}" // <--- REMOVE .getVal()
     //
     // WORKFLOW: Run main workflow
     //
-    JACGONISA_CHARLA_NF (
-        PIPELINE_INITIALISATION.out.samplesheet
+    CHARLA_NF (
+        PIPELINE_INITIALISATION.out.input_tuple
     )
-    //
-    // SUBWORKFLOW: Run completion tasks
-    //
-    PIPELINE_COMPLETION (
-        params.email,
-        params.email_on_fail,
-        params.plaintext_email,
-        params.outdir,
-        params.monochrome_logs,
-        params.hook_url,
-        JACGONISA_CHARLA_NF.out.multiqc_report
-    )
+
+
+// --- ADD THE FOLLOWING LINES ---
+// Mix the two output channels from CHARLA_NF into a single channel
+// This channel will contain all .kmc_pre and .kmc_suf files as they are produced
+    ch_all_kmers = CHARLA_NF.out.kmc_pre.mix(CHARLA_NF.out.kmc_suf)
+// --- END ADDED LINES ---
+
+//
+// SUBWORKFLOW: Run completion tasks
+//
+PIPELINE_COMPLETION (
+    params.email,
+    params.email_on_fail,
+    params.plaintext_email,
+    params.outdir,
+    params.monochrome_logs,
+    params.hook_url,
+    ch_all_kmers // <--- CHANGE THIS LINE to pass the new mixed channel
+)
+
+
+
 }
 
 /*

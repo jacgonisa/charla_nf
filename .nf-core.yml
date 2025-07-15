@@ -34,8 +34,8 @@ lint:
 template:
   org: jacgonisa
   name: charla_nf
-  description: 'CHARLA (Centromeric Haplotype Analysis of Recombination using Long-reads
-    of Arabidopsis) '
+  description: "CHARLA (Centromeric Haplotype Analysis of Recombination using Long-reads
+    of Arabidopsis) "
   author: "Jacob Gonz\xE1lez Isa"
   version: 1.0.0dev
   force: true
