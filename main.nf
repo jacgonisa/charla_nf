@@ -38,7 +38,8 @@ workflow {
 	[],
         params.outdir,
         params.reads,
-	params.sample_id
+	params.sample_id,
+       params.cenhapmer_db_dir   
     )
 
 // Add these two lines immediately after the PIPELINE_INITIALISATION call

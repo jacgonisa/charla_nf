@@ -19,66 +19,143 @@ include { generate_readmers_kmc } from '../modules/local/generate_readmers_kmc.n
 include { generate_histogram_kmc } from '../modules/local/generate_histogram_kmc.nf'
 include { get_counts_kmc } from '../modules/local/get_counts_kmc.nf'
 
+
+
+include { get_counts_cenhapmer_kmc } from '../modules/local/get_counts_cenhapmer_kmc.nf'
+
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+
 workflow CHARLA_NF {
     take:
-    input_tuple // input channel
+    input_tuple // [fastq_file, sample_id, kmer_size]
+    cenhapmer_db_dir     // directory where unique kmc DBs are
     
     main:
+    // Debug: Check initial input
+    input_tuple.view { "Initial input: $it" }
+    
     // Transform input tuple to match FASTQ_TO_FASTA expected format
-    // Input: [fastq_file, sample_id, kmer_size]
-    // Output: [meta, fastq_file]
+    // Keep original metadata alongside
     fastq_input = input_tuple.map { fastq_file, sample_id, kmer_size ->
-        tuple([id: sample_id], fastq_file)
+        tuple([id: sample_id], fastq_file, sample_id, kmer_size)
     }
     
+    // Debug: Check transformed input
+    fastq_input.view { "FASTQ input: $it" }
+    
     // Step 1: Convert FASTQ to FASTA
-    fastq_input | FASTQ_TO_FASTA
+    fastq_for_conversion = fastq_input.map { meta, fastq, sample_id, kmer_size -> 
+        tuple(meta, fastq) 
+    }
+    
+    fastq_for_conversion | FASTQ_TO_FASTA
     
     // Step 2: Simplify headers
     FASTQ_TO_FASTA.out.fasta | SIMPLIFY_HEADERS
     
-    // Update the input for downstream processes to use the processed FASTA
-    // We need to recreate the original tuple format: [fasta_file, sample_id, kmer_size]
-    processed_input = SIMPLIFY_HEADERS.out.fasta
-        .cross(input_tuple)
-        .filter { processed, original -> 
-            processed[0].id == original[1] }  // match sample_id
-        .map { processed, original -> 
-            tuple(processed[1], original[1], original[2]) }  // [fasta_file, sample_id, kmer_size]
+    // Debug: Check SIMPLIFY_HEADERS output
+    SIMPLIFY_HEADERS.out.fasta.view { "SIMPLIFY_HEADERS output: $it" }
     
-    // Generate k-mer database files (now using FASTA instead of FASTQ)
+    // Reconstruct the input for KMC processes using join
+    // This is much cleaner than cross/filter
+    metadata_for_join = fastq_input.map { meta, fastq, sample_id, kmer_size -> 
+        tuple(meta, sample_id, kmer_size) 
+    }
+    
+    processed_input = SIMPLIFY_HEADERS.out.fasta
+        .join(metadata_for_join)
+        .map { meta, fasta_file, sample_id, kmer_size -> 
+            tuple(fasta_file, sample_id, kmer_size) 
+        }
+    // Extract FASTA from SIMPLIFY_HEADERS and create tuple with cenhapmer DB dir
+   cenhapmer_input = SIMPLIFY_HEADERS.out.fasta.map { fasta_file ->
+           tuple(fasta_file, params.cenhapmer_db_dir)
+     }
+
+    // Debug: Check processed_input
+    processed_input.view { "Processed input for KMC: $it" }
+
+
+
+   // ====================================================================
+    // Branch A: Standard KMC Profiling
+    // ====================================================================
+
+
+    
+    // Generate k-mer database files (now using FASTA)
     processed_input | generate_readmers_kmc
+    
+    // Debug: Check KMC output
+    generate_readmers_kmc.out.view { "KMC output: $it" }
     
     // Generate histogram from k-mer database
     generate_readmers_kmc.out | generate_histogram_kmc
     
-    // Prepare input for get_counts_kmc by adding the processed fasta file
-    // Combine the kmc output with the processed input to get all required data
-    counts_input = generate_readmers_kmc.out
-        .cross(processed_input)
-        .filter { kmc_output, processed_input -> 
-            kmc_output[2] == processed_input[1] && kmc_output[3] == processed_input[2] }
-        .map { kmc_output, processed_input -> 
-            tuple(kmc_output[0], kmc_output[1], processed_input[0], kmc_output[2], kmc_output[3]) }
+    // Debug: Check histogram output
+    generate_histogram_kmc.out.view { "Histogram output: $it" }
     
-    // Debug: Check what goes into get_counts_kmc
+    // Prepare input for get_counts_kmc
+    // We need to combine KMC output with the original FASTA file
+    fasta_for_counts = processed_input.map { fasta, sample_id, kmer_size -> 
+        tuple(sample_id, fasta) 
+    }
+    
+    counts_input = generate_readmers_kmc.out
+        .map { kmc_pre, kmc_suf, sample_id, kmer_size -> 
+            tuple(sample_id, kmc_pre, kmc_suf, kmer_size) 
+        }
+        .join(fasta_for_counts)
+        .map { sample_id, kmc_pre, kmc_suf, kmer_size, fasta -> 
+            tuple(kmc_pre, kmc_suf, fasta, sample_id, kmer_size) 
+        }
+    
+    // Debug: Check counts input
     counts_input.view { "Counts input: $it" }
  
     // Get k-mer counts for reads (now using processed FASTA)
     counts_input | get_counts_kmc
     
+    // Debug: Check final output
+    get_counts_kmc.out.view { "Final counts output: $it" }
+    
+
+ /*
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Branch B: CENHAPMER PROFILING SECTION (Parallel Branch)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+
+    // 1. Validate cenhapmer_db_dir parameter
+    if (!cenhapmer_db_dir) {
+        error "ERROR: The --cenhapmer_db_dir parameter must be provided for cenhapmer analysis."
+    }
+
+
+    cenhapmer_input | get_counts_cenhapmer_kmc
+
+    get_counts_cenhapmer_kmc.out.view { "Cenhapmer output: $it" }
+    
+
+
     emit:
     fasta = SIMPLIFY_HEADERS.out.fasta
     kmc_pre = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_pre }
     kmc_suf = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_suf }
     histo = generate_histogram_kmc.out.histo
     counts = get_counts_kmc.out
+    cenhapmer_counts = get_counts_cenhapmer_kmc.out
+
 }
+
+
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
