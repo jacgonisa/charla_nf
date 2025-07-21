@@ -18,18 +18,13 @@ include { SIMPLIFY_HEADERS } from '../modules/local/simplify_headers.nf'
 include { generate_readmers_kmc } from '../modules/local/generate_readmers_kmc.nf'
 include { generate_histogram_kmc } from '../modules/local/generate_histogram_kmc.nf'
 include { get_counts_kmc } from '../modules/local/get_counts_kmc.nf'
-
-
-
 include { get_counts_cenhapmer_kmc } from '../modules/local/get_counts_cenhapmer_kmc.nf'
-
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-
 
 workflow CHARLA_NF {
     take:
@@ -40,57 +35,64 @@ workflow CHARLA_NF {
     // Debug: Check initial input
     input_tuple.view { "Initial input: $it" }
     
-    // Transform input tuple to match FASTQ_TO_FASTA expected format
-    // Keep original metadata alongside
-    fastq_input = input_tuple.map { fastq_file, sample_id, kmer_size ->
-        tuple([id: sample_id], fastq_file, sample_id, kmer_size)
+    // Determine if conversion is needed based on params.input_format
+    input_data = input_tuple.map { file_path, sample_id, kmer_size ->
+        def meta = [id: sample_id]
+        tuple(meta, file_path, sample_id, kmer_size)
     }
+
+    // Branch depending on FASTQ or FASTA
+    processed_data = Channel.empty()
+    processed_fasta_files = Channel.empty()
     
-    // Debug: Check transformed input
-    fastq_input.view { "FASTQ input: $it" }
-    
-    // Step 1: Convert FASTQ to FASTA
-    fastq_for_conversion = fastq_input.map { meta, fastq, sample_id, kmer_size -> 
-        tuple(meta, fastq) 
-    }
-    
-    fastq_for_conversion | FASTQ_TO_FASTA
-    
-    // Step 2: Simplify headers
-    FASTQ_TO_FASTA.out.fasta | SIMPLIFY_HEADERS
-    
-    // Debug: Check SIMPLIFY_HEADERS output
-    SIMPLIFY_HEADERS.out.fasta.view { "SIMPLIFY_HEADERS output: $it" }
-    
-    // Reconstruct the input for KMC processes using join
-    // This is much cleaner than cross/filter
-    metadata_for_join = fastq_input.map { meta, fastq, sample_id, kmer_size -> 
-        tuple(meta, sample_id, kmer_size) 
-    }
-    
-    processed_input = SIMPLIFY_HEADERS.out.fasta
-        .join(metadata_for_join)
-        .map { meta, fasta_file, sample_id, kmer_size -> 
-            tuple(fasta_file, sample_id, kmer_size) 
+    if (params.input_format == 'fastq') {
+        log.info "[CHARLA_NF] Detected input format: FASTQ → Will convert to FASTA"
+        input_data
+            .map { meta, fastq, sample_id, kmer_size -> tuple(meta, fastq) }
+            | FASTQ_TO_FASTA
+        
+        FASTQ_TO_FASTA.out.fasta | SIMPLIFY_HEADERS
+        
+        // Store processed FASTA files for emit
+        processed_fasta_files = SIMPLIFY_HEADERS.out.fasta
+        
+        // Reconstruct full tuple after processing
+        processed_data = SIMPLIFY_HEADERS.out.fasta
+            .combine(input_data.map { meta, fastq, sample_id, kmer_size -> tuple(meta.id, sample_id, kmer_size) })
+            .filter { fasta_meta, fasta_file, sample_id, orig_sample_id, kmer_size -> 
+                fasta_meta.id == orig_sample_id 
+            }
+            .map { fasta_meta, fasta_file, sample_id, orig_sample_id, kmer_size -> 
+                tuple(fasta_file, sample_id, kmer_size) 
+            }
+            
+    } else if (params.input_format == 'fasta') {
+        log.info "[CHARLA_NF] Detected input format: FASTA → Will skip conversion"
+        processed_data = input_data.map { meta, fasta, sample_id, kmer_size -> 
+            tuple(fasta, sample_id, kmer_size) 
         }
-    // Extract FASTA from SIMPLIFY_HEADERS and create tuple with cenhapmer DB dir
-   cenhapmer_input = SIMPLIFY_HEADERS.out.fasta.map { fasta_file ->
-           tuple(fasta_file, params.cenhapmer_db_dir)
-     }
+        // Store FASTA files for emit (no processing needed)
+        processed_fasta_files = input_data.map { meta, fasta, sample_id, kmer_size -> 
+            tuple(meta, fasta) 
+        }
+    } else {
+        error "Invalid value for --input_format: '${params.input_format}'. Must be 'fastq' or 'fasta'"
+    }
 
-    // Debug: Check processed_input
-    processed_input.view { "Processed input for KMC: $it" }
+    // Debug: Check processed input
+    processed_data.view { "Processed input for KMC: $it" }
 
+    // Create cenhapmer input from processed data (SINGLE DEFINITION)
+    cenhapmer_input = processed_data.map { fasta_file, sample_id, kmer_size ->
+        tuple(fasta_file, params.cenhapmer_db_dir)
+    }
 
-
-   // ====================================================================
+    // ====================================================================
     // Branch A: Standard KMC Profiling
     // ====================================================================
-
-
     
     // Generate k-mer database files (now using FASTA)
-    processed_input | generate_readmers_kmc
+    processed_data | generate_readmers_kmc
     
     // Debug: Check KMC output
     generate_readmers_kmc.out.view { "KMC output: $it" }
@@ -103,7 +105,7 @@ workflow CHARLA_NF {
     
     // Prepare input for get_counts_kmc
     // We need to combine KMC output with the original FASTA file
-    fasta_for_counts = processed_input.map { fasta, sample_id, kmer_size -> 
+    fasta_for_counts = processed_data.map { fasta, sample_id, kmer_size -> 
         tuple(sample_id, fasta) 
     }
     
@@ -124,9 +126,8 @@ workflow CHARLA_NF {
     
     // Debug: Check final output
     get_counts_kmc.out.view { "Final counts output: $it" }
-    
 
- /*
+    /*
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         Branch B: CENHAPMER PROFILING SECTION (Parallel Branch)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,25 +138,18 @@ workflow CHARLA_NF {
         error "ERROR: The --cenhapmer_db_dir parameter must be provided for cenhapmer analysis."
     }
 
-
     cenhapmer_input | get_counts_cenhapmer_kmc
 
     get_counts_cenhapmer_kmc.out.view { "Cenhapmer output: $it" }
-    
-
 
     emit:
-    fasta = SIMPLIFY_HEADERS.out.fasta
+    fasta = processed_fasta_files  // Use consistent channel that works for both FASTQ and FASTA
     kmc_pre = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_pre }
     kmc_suf = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_suf }
     histo = generate_histogram_kmc.out.histo
     counts = get_counts_kmc.out
     cenhapmer_counts = get_counts_cenhapmer_kmc.out
-
 }
-
-
-
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

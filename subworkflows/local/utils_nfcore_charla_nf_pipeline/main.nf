@@ -34,6 +34,8 @@ workflow PIPELINE_INITIALISATION {
     outdir            //  string: The output directory where the results will be saved
     reads               //  string: Path to input reads (e.g., fastq file)
     sample_id           //  string: Sample identifier
+    cenhapmer_db_dir
+    input_format 
  
    main:
    // log.error "!!! FORCED CRASH DEBUG: This message should definitely appear in the log file. !!!"

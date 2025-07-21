@@ -39,17 +39,34 @@ workflow {
         params.outdir,
         params.reads,
 	params.sample_id,
-       params.cenhapmer_db_dir   
+       params.cenhapmer_db_dir,
+       params.input_format   
     )
 
 // Add these two lines immediately after the PIPELINE_INITIALISATION call
     log.info "DEBUG: PIPELINE_INITIALISATION subworkflow has finished."
     // log.info "DEBUG: Is input_tuple channel empty? ${PIPELINE_INITIALISATION.out.input_tuple.isEmpty()}" // <--- REMOVE .getVal()
     //
+
+
+
+    // --- ADD: Create combinations of ACC, CAT, CHR ---
+    ch_kmc_combinations = Channel
+        .from(['Col', 'Ler'])
+        .flatMap { acc -> ['CEN', 'ARMS'].collect { cat -> (1..5).collect { chr -> [acc, cat, chr] } } }
+        .flatten()
+    // --- END ADD ---
+
+
+
+
+
     // WORKFLOW: Run main workflow
     //
     CHARLA_NF (
-        PIPELINE_INITIALISATION.out.input_tuple
+        PIPELINE_INITIALISATION.out.input_tuple,
+            params.cenhapmer_db_dir,
+                  ch_kmc_combinations // <--- ADD this as a third input to CHARLA_NF
     )
 
 
