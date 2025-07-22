@@ -15,6 +15,6 @@ process get_counts_kmc {
     get_counts_threads \\
         ${sample_id}_k${kmer_size}_kmer_counts \\
         ${fastq} \\
-        20 > ${sample_id}_k${kmer_size}_read_kmer_counts.txt
+        10 > ${sample_id}_k${kmer_size}_read_kmer_counts.txt
     """
 }

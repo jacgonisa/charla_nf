@@ -28,6 +28,12 @@ workflow {
 
     main:
     //
+
+log.info "DEBUG: Selected profile: ${workflow.profile}"
+log.info "DEBUG: Configured output dir: ${params.outdir}"
+//log.info "DEBUG: Configured executor: ${workflow.config.process.executor ?: 'NOT SET'}"
+//log.info "DEBUG: Configured maxForks: ${workflow.config.process.maxForks ?: 'NOT SET'}"
+
     // SUBWORKFLOW: Run initialisation tasks
     //
     PIPELINE_INITIALISATION (
@@ -50,14 +56,19 @@ workflow {
 
 
 
-    // --- ADD: Create combinations of ACC, CAT, CHR ---
-    ch_kmc_combinations = Channel
-        .from(['Col', 'Ler'])
-        .flatMap { acc -> ['CEN', 'ARMS'].collect { cat -> (1..5).collect { chr -> [acc, cat, chr] } } }
-        .flatten()
-    // --- END ADD ---
-
-
+// --- ADD: Create combinations of ACC, CAT, CHR ---
+ch_kmc_combinations = Channel
+    .from(['Col', 'Ler'])
+    .flatMap { acc -> 
+        ['CEN', 'ARMS'].collectMany { cat -> 
+            (1..5).collect { chr -> 
+                [acc, cat, chr] 
+            } 
+        } 
+    }
+// Add debug to see what combinations are created
+ch_kmc_combinations.view { "KMC combinations: $it" }
+// --- END ADD ---
 
 
 

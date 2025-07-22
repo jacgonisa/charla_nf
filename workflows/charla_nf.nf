@@ -28,9 +28,10 @@ include { get_counts_cenhapmer_kmc } from '../modules/local/get_counts_cenhapmer
 
 workflow CHARLA_NF {
     take:
-    input_tuple // [fastq_file, sample_id, kmer_size]
-    cenhapmer_db_dir     // directory where unique kmc DBs are
-    
+    input_tuple         // [fastq_file, sample_id, kmer_size]
+    cenhapmer_db_dir    // directory where unique kmc DBs are
+    ch_kmc_combinations // [acc, cat, chr] - Add this to the take block
+
     main:
     // Debug: Check initial input
     input_tuple.view { "Initial input: $it" }
@@ -82,11 +83,6 @@ workflow CHARLA_NF {
     // Debug: Check processed input
     processed_data.view { "Processed input for KMC: $it" }
 
-    // Create cenhapmer input from processed data (SINGLE DEFINITION)
-    cenhapmer_input = processed_data.map { fasta_file, sample_id, kmer_size ->
-        tuple(fasta_file, params.cenhapmer_db_dir)
-    }
-
     // ====================================================================
     // Branch A: Standard KMC Profiling
     // ====================================================================
@@ -120,7 +116,7 @@ workflow CHARLA_NF {
     
     // Debug: Check counts input
     counts_input.view { "Counts input: $it" }
- 
+    
     // Get k-mer counts for reads (now using processed FASTA)
     counts_input | get_counts_kmc
     
@@ -138,12 +134,42 @@ workflow CHARLA_NF {
         error "ERROR: The --cenhapmer_db_dir parameter must be provided for cenhapmer analysis."
     }
 
-    cenhapmer_input | get_counts_cenhapmer_kmc
+// ~~~ Parallelized CENHAPMER section ~~~
+// Combine each (acc, cat, chr) from ch_kmc_combinations
+// with the single item from processed_data (which contains fasta_file)
 
+//cenhapmer_parallel_input = ch_kmc_combinations.combine(processed_data)
+//    .map { acc, cat, chr, fasta_file, sample_id, kmer_size -> 
+//        tuple(acc, cat, chr, fasta_file, cenhapmer_db_dir)
+//    }
+
+
+
+// With this:
+// Create the channel in a simpler way
+// ~~~ THE CORRECT, NON-BLOCKING WAY ~~~
+cenhapmer_parallel_input = ch_kmc_combinations
+    .combine(processed_data)
+    .map { acc, cat, chr, fasta_file, sample_id, kmer_size ->
+        // The process needs the path to the directory, not the directory channel itself
+        def db_dir = file(params.cenhapmer_db_dir)
+        return tuple(acc, cat, chr, fasta_file, db_dir)
+    }
+
+
+// Add debug to see what's being passed to cenhapmer
+cenhapmer_parallel_input.view { 
+    "Task: ${it[0]}_${it[1]}_${it[2]} - Fasta: ${it[3].name} - DB: ${it[4]}" 
+}
+
+    // Run the process in parallel
+    cenhapmer_parallel_input | get_counts_cenhapmer_kmc
+
+    // View output
     get_counts_cenhapmer_kmc.out.view { "Cenhapmer output: $it" }
 
     emit:
-    fasta = processed_fasta_files  // Use consistent channel that works for both FASTQ and FASTA
+    fasta = processed_fasta_files // Use consistent channel that works for both FASTQ and FASTA
     kmc_pre = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_pre }
     kmc_suf = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_suf }
     histo = generate_histogram_kmc.out.histo
@@ -155,3 +181,4 @@ workflow CHARLA_NF {
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     THE END
 */
+
