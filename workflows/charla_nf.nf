@@ -1,9 +1,11 @@
 nextflow.enable.dsl=2
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
 // Keep commented out as before
 // include { paramsSummaryMap } from 'plugin/nf-schema'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -19,6 +21,7 @@ include { generate_readmers_kmc } from '../modules/local/generate_readmers_kmc.n
 include { generate_histogram_kmc } from '../modules/local/generate_histogram_kmc.nf'
 include { get_counts_kmc } from '../modules/local/get_counts_kmc.nf'
 include { get_counts_cenhapmer_kmc } from '../modules/local/get_counts_cenhapmer_kmc.nf'
+include { process_cenhapmer_counts } from '../modules/local/process_cenhapmer_counts.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -41,7 +44,7 @@ workflow CHARLA_NF {
         def meta = [id: sample_id]
         tuple(meta, file_path, sample_id, kmer_size)
     }
-
+    
     // Branch depending on FASTQ or FASTA
     processed_data = Channel.empty()
     processed_fasta_files = Channel.empty()
@@ -134,39 +137,49 @@ workflow CHARLA_NF {
         error "ERROR: The --cenhapmer_db_dir parameter must be provided for cenhapmer analysis."
     }
 
-// ~~~ Parallelized CENHAPMER section ~~~
-// Combine each (acc, cat, chr) from ch_kmc_combinations
-// with the single item from processed_data (which contains fasta_file)
+    // ~~~ Parallelized CENHAPMER section ~~~
+    // Combine each (acc, cat, chr) from ch_kmc_combinations
+    // with the single item from processed_data (which contains fasta_file)
+    // Create the channel in a simpler way
+    // ~~~ THE CORRECT, NON-BLOCKING WAY ~~~
+    cenhapmer_parallel_input = ch_kmc_combinations
+        .combine(processed_data)
+        .map { acc, cat, chr, fasta_file, sample_id, kmer_size ->
+            // The process needs the path to the directory, not the directory channel itself
+            def db_dir = file(params.cenhapmer_db_dir)
+            return tuple(acc, cat, chr, fasta_file, db_dir)
+        }
 
-//cenhapmer_parallel_input = ch_kmc_combinations.combine(processed_data)
-//    .map { acc, cat, chr, fasta_file, sample_id, kmer_size -> 
-//        tuple(acc, cat, chr, fasta_file, cenhapmer_db_dir)
-//    }
-
-
-
-// With this:
-// Create the channel in a simpler way
-// ~~~ THE CORRECT, NON-BLOCKING WAY ~~~
-cenhapmer_parallel_input = ch_kmc_combinations
-    .combine(processed_data)
-    .map { acc, cat, chr, fasta_file, sample_id, kmer_size ->
-        // The process needs the path to the directory, not the directory channel itself
-        def db_dir = file(params.cenhapmer_db_dir)
-        return tuple(acc, cat, chr, fasta_file, db_dir)
+    // Add debug to see what's being passed to cenhapmer
+    cenhapmer_parallel_input.view { 
+        "Task: ${it[0]}_${it[1]}_${it[2]} - Fasta: ${it[3].name} - DB: ${it[4]}" 
     }
 
-
-// Add debug to see what's being passed to cenhapmer
-cenhapmer_parallel_input.view { 
-    "Task: ${it[0]}_${it[1]}_${it[2]} - Fasta: ${it[3].name} - DB: ${it[4]}" 
-}
-
-    // Run the process in parallel
+    // Run the process in parallel and assign its output to the variable
     cenhapmer_parallel_input | get_counts_cenhapmer_kmc
 
     // View output
     get_counts_cenhapmer_kmc.out.view { "Cenhapmer output: $it" }
+
+    // --- NEW MODULE CALL: process_cenhapmer_counts ---
+    // FIXED: Pass the absolute directory path instead of collecting files
+    ch_cenhapmer_dir_path = Channel.value("${workflow.launchDir}/${params.outdir}/cenhapmers")
+    
+    // Create a channel for the script path, assuming it's in the 'scripts' directory relative to the pipeline
+    // Nextflow will stage this script into the work directory for the process
+    ch_script_file = Channel.fromPath("${baseDir}/scripts/process_cenhapmer_script.py")
+    
+    // Get the single fasta file for seqkit stats
+    ch_fasta_for_postproc = processed_fasta_files.map { meta, fasta -> fasta }.first()
+    
+    // Now, call process_cenhapmer_counts with the directory path
+    process_cenhapmer_counts_output = process_cenhapmer_counts(
+        ch_cenhapmer_dir_path,   // Directory path (e.g., "results/cenhapmers")
+        ch_fasta_for_postproc,   // The main FASTA file for seqkit stats
+        ch_script_file,          // The Python script file
+        params.sample_id         // Use sample_id as the output_name for the final matrix
+    )
+    // --- END NEW MODULE CALL ---
 
     emit:
     fasta = processed_fasta_files // Use consistent channel that works for both FASTQ and FASTA
@@ -175,10 +188,10 @@ cenhapmer_parallel_input.view {
     histo = generate_histogram_kmc.out.histo
     counts = get_counts_kmc.out
     cenhapmer_counts = get_counts_cenhapmer_kmc.out
+    processed_cenhapmer_matrix = process_cenhapmer_counts_output.kmer_matrix // Emit the final processed matrix
 }
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     THE END
 */
-
