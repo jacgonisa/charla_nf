@@ -22,6 +22,9 @@ include { generate_histogram_kmc } from '../modules/local/generate_histogram_kmc
 include { get_counts_kmc } from '../modules/local/get_counts_kmc.nf'
 include { get_counts_cenhapmer_kmc } from '../modules/local/get_counts_cenhapmer_kmc.nf'
 include { process_cenhapmer_counts } from '../modules/local/process_cenhapmer_counts.nf'
+include { COMBINE_HYBRID_PROFILES } from '../modules/local/combine_hybrid_profiles.nf'
+include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles'
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -181,6 +184,52 @@ workflow CHARLA_NF {
     )
     // --- END NEW MODULE CALL ---
 
+   /*
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Branch C: COMBINE HYBRID PROFILES
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+    // 1. Validate index_dir parameter
+    if (!params.index_dir) {
+        error "ERROR: The --index_dir parameter must be provided for hybrid profile combination."
+    }
+
+    // Prepare inputs for COMBINE_HYBRID_PROFILES
+    // input_dir_of_txt_files: This is the directory where get_counts_cenhapmer_kmc publishes its individual .txt files.
+    // The 'type: 'dir'' in the module definition will ensure this channel is staged as a directory.
+    ch_input_dir_for_hybrid = Channel.value("${workflow.launchDir}/${params.outdir}/cenhapmers")
+
+
+    // kmer_tsv: This is the output of process_cenhapmer_counts (the aggregated TSV)
+    ch_kmer_tsv = process_cenhapmer_counts_output.kmer_matrix
+
+    // qc_file: This is the output of get_counts_kmc (the readmer file)
+    // The get_counts_kmc.out channel emits a single file.
+    ch_qc_file = get_counts_kmc.out
+
+    // Ensure the Rust binary path is treated as a file for staging
+    ch_rust_binary = Channel.fromPath("${baseDir}/rust/combine_segment_fast_indixes/target/release/hybrid_profile_toolkit")
+    
+    // Call the new module
+    combine_hybrid_profiles_output = COMBINE_HYBRID_PROFILES(
+        ch_input_dir_for_hybrid,
+        ch_kmer_tsv,
+        ch_qc_file,
+        params.min_count                
+    )
+
+   /*
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Branch D: CURATE HYBRID PROFILES
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+    // Process the hybrid profiles through curation steps
+    curate_hybrid_profiles_output = CURATE_HYBRID_PROFILES(
+        combine_hybrid_profiles_output.hybrid_profiles_file
+    )
+
+
+
     emit:
     fasta = processed_fasta_files // Use consistent channel that works for both FASTQ and FASTA
     kmc_pre = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_pre }
@@ -189,6 +238,10 @@ workflow CHARLA_NF {
     counts = get_counts_kmc.out
     cenhapmer_counts = get_counts_cenhapmer_kmc.out
     processed_cenhapmer_matrix = process_cenhapmer_counts_output.kmer_matrix // Emit the final processed matrix
+    hybrid_profiles = combine_hybrid_profiles_output.hybrid_profiles_file // Emit the final hybrid profiles
+    curated_profiles = curate_hybrid_profiles_output.final_table // Emit the final curated table
+    curated_intermediate = curate_hybrid_profiles_output.ultracurated_table // Emit intermediate for debugging
+    curated_cut = curate_hybrid_profiles_output.cut_table // Emit cut version for debugging
 }
 
 /*
