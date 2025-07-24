@@ -46,16 +46,13 @@ SIMPLIFY_HEADERS
 <!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
      Explain what rows and columns represent. For instance (please edit as appropriate):
 
-First, prepare a samplesheet with your input data that looks as follows:
 
-`samplesheet.csv`:
+```bash
 
-```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
+nextflow run ../charla_nf/main.nf     --reads ../Col_Ler_F1_leaf_q20_1000bp_pore_firstmillion.fa     --sample_id ColLer_LEAF     --input_format fasta     --cenhapmer_db_dir $(realpath ../03-cenhapmers/k41)     --outdir results     --kmer_size 41     --cenhapmer_cpus 1     --cenhapmer_memory 50GB     --readmer_memory 50GB     --readmer_cpus 10     -profile local     -with-trace trace.txt -resume
+
 ```
 
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
 
 -->
 
