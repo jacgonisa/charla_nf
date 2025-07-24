@@ -53,11 +53,11 @@ SIMPLIFY_HEADERS
      Explain what rows and columns represent. For instance (please edit as appropriate):
 
 
-```bash
 
-nextflow run ../charla_nf/main.nf     --reads ../Col_Ler_F1_leaf_q20_1000bp_pore_firstmillion.fa     --sample_id ColLer_LEAF     --input_format fasta     --cenhapmer_db_dir $(realpath ../03-cenhapmers/k41)     --outdir results     --kmer_size 41     --cenhapmer_cpus 1     --cenhapmer_memory 50GB     --readmer_memory 50GB     --readmer_cpus 10     -profile local     -with-trace trace.txt -resume
 
-```
+
+
+
 
 
 -->
@@ -67,10 +67,10 @@ Now, you can run the pipeline using:
 <!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
 
 ```bash
-nextflow run jacgonisa/charla_nf \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+nextflow run ../charla_nf/main.nf     --reads ../Col_Ler_F1_leaf_q20_1000bp_pore_firstmillion.fa     --sample_id ColLer_LEAF     --input_format fasta     --cenhapmer_db_dir $(realpath ../03-cenhapmers/k41)     --outdir results     --kmer_size 41     --cenhapmer_cpus 1     --cenhapmer_memory 50GB     --readmer_memory 50GB     --readmer_cpus 10     -profile local     -with-trace trace.txt -resume
+
+
+
 ```
 
 > [!WARNING]
