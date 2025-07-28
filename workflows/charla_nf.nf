@@ -23,8 +23,9 @@ include { get_counts_kmc } from '../modules/local/get_counts_kmc.nf'
 include { get_counts_cenhapmer_kmc } from '../modules/local/get_counts_cenhapmer_kmc.nf'
 include { process_cenhapmer_counts } from '../modules/local/process_cenhapmer_counts.nf'
 include { COMBINE_HYBRID_PROFILES } from '../modules/local/combine_hybrid_profiles.nf'
-include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles'
-
+include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles.nf'
+include { SEGMENT_READS } from '../modules/local/segment_reads.nf'
+include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -230,6 +231,55 @@ workflow CHARLA_NF {
 
 
 
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Branch E: SEGMENT READS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+ // Debug the channels
+ // Debug the channels
+    curate_hybrid_profiles_output.final_table.view { "final_table: $it" }
+    combine_hybrid_profiles_output.hybrid_profiles_file.view { "hybrid_profiles_file: $it" }
+    processed_fasta_files.view { "processed_fasta_files: $it" }
+    
+    // Segment reads based on threshold and generate BED files
+    segment_reads_output = SEGMENT_READS(
+        curate_hybrid_profiles_output.final_table,           
+        combine_hybrid_profiles_output.hybrid_profiles_file, 
+        processed_fasta_files.map { meta, file -> file },  // Extract file from [meta, file]
+        params.threshold ?: 50                               
+    )
+
+
+/*
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        Branch F: MAPPING ANALYSIS
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+    // Validate reference genomes directory
+    if (!params.reference_genomes_dir) {
+        error "ERROR: The --reference_genomes_dir parameter must be provided for mapping analysis."
+    }
+    
+    // Create channel for reference genomes directory
+    ch_reference_genomes = Channel.fromPath(params.reference_genomes_dir, type: 'dir')
+    
+    // Perform mapping analysis
+    mapping_analysis_output = MAPPING_ANALYSIS(
+        segment_reads_output.segmented_fasta.filter { it.name.contains('ARMS') }.first(),  // ARMS segments
+        segment_reads_output.segmented_fasta.filter { it.name.contains('CEN') }.first(),   // CEN segments
+        segment_reads_output.bed_files.filter { it.name.contains('ARMS') }.first(),       // ARMS BED
+        segment_reads_output.bed_files.filter { it.name.contains('CEN') }.first(),        // CEN BED
+        ch_reference_genomes,                                                              // Reference genomes
+        params.threshold ?: 50                                                             // Threshold
+    )
+
+
+
+
+
+
     emit:
     fasta = processed_fasta_files // Use consistent channel that works for both FASTQ and FASTA
     kmc_pre = generate_readmers_kmc.out.map { kmc_pre, kmc_suf, sample_id, kmer_size -> kmc_pre }
@@ -241,8 +291,27 @@ workflow CHARLA_NF {
     hybrid_profiles = combine_hybrid_profiles_output.hybrid_profiles_file // Emit the final hybrid profiles
     curated_profiles = curate_hybrid_profiles_output.final_table // Emit the final curated table
     curated_intermediate = curate_hybrid_profiles_output.ultracurated_table // Emit intermediate for debugging
-    curated_cut = curate_hybrid_profiles_output.cut_table // Emit cut version for debugging
+    curated_cut = curate_hybrid_profiles_output.cut_table // Emit cut version for debuggingig
+
+        // Segmentation outputs
+    filtered_reads = segment_reads_output.filtered_table // Threshold-filtered reads
+    nonectopic_candidates = segment_reads_output.nonectopic_candidates // Non-ectopic candidates
+    arms_candidates = segment_reads_output.arms_candidates // ARMS candidates
+    cen_candidates = segment_reads_output.cen_candidates // CEN candidates
+    arms_fasta = segment_reads_output.arms_fasta // ARMS FASTA sequences
+    cen_fasta = segment_reads_output.cen_fasta // CEN FASTA sequences
+    bed_files = segment_reads_output.bed_files // All BED files
+    segmented_fasta = segment_reads_output.segmented_fasta // Final segmented FASTA files
 }
+
+
+	// Mapping outputs
+    arms_mapping = mapping_analysis_output.arms_mapping_results
+    cen_mapping = mapping_analysis_output.cen_mapping_results
+    plotting_results = mapping_analysis_output.plotting_results
+    paf_files = mapping_analysis_output.paf_files
+    cowidth_files = mapping_analysis_output.cowidth_files
+
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
