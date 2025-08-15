@@ -3,18 +3,60 @@ import sys
 import os
 import argparse
 
+def parse_read_id_structure(read_id):
+    """
+    Parse a read ID to extract base_id and segment info.
+    Expected format: 'base_id_segmentIndex_segmentLabel'
+    
+    The challenge is that base_id itself may contain underscores.
+    We assume the last two underscore-separated parts are segmentIndex and segmentLabel,
+    and everything before that is the base_id.
+    
+    Examples:
+    - 'read_981729_len6991_err1.00pc_orig_start115774872_2_LA5' 
+      -> base_id: 'read_981729_len6991_err1.00pc_orig_start115774872', segment: '2_LA5'
+    - 'f389b71d-80f2-4cbd-98e6-2fd3a413ce69_3_CA2'
+      -> base_id: 'f389b71d-80f2-4cbd-98e6-2fd3a413ce69', segment: '3_CA2'
+    - 'simple_read_full' (no segment info)
+      -> base_id: 'simple_read_full', segment: None
+    """
+    parts = read_id.split("_")
+    
+    if len(parts) < 3:
+        # No segment info, entire read_id is base_id
+        return read_id, None
+    
+    # Check if the last two parts look like segment info (index + label)
+    # The segment index should be numeric, and label should start with L or C
+    potential_index = parts[-2]
+    potential_label = parts[-1]
+    
+    # Simple heuristic: if second-to-last part is numeric and last part starts with L or C
+    try:
+        int(potential_index)
+        if potential_label.startswith(('L', 'C')):
+            # This looks like segment info
+            base_id = "_".join(parts[:-2])
+            segment = f"{potential_index}_{potential_label}"
+            return base_id, segment
+    except ValueError:
+        pass
+    
+    # If we can't identify segment info, treat entire read_id as base_id
+    return read_id, None
+
 def parse_paf_line(line):
     """
     Parse a PAF line and extract key fields.
-    Also compute a 'base_id' as the substring before the first underscore.
+    Also compute a 'base_id' using the improved parsing.
     """
     fields = line.strip().split("\t")
     if len(fields) < 12:
         return None
     rec = {}
     rec['read_id'] = fields[0]
-    #rec['base_id'] = rec['read_id'].split("_")[0]
-    rec['base_id'] = extract_base_id(rec['read_id'])
+    rec['base_id'], segment_info = parse_read_id_structure(rec['read_id'])
+    
     try:
         rec['qlen'] = int(fields[1])
         rec['qstart'] = int(fields[2])
@@ -57,105 +99,60 @@ def parse_paf_line(line):
     rec['line'] = line
     return rec
 
-def extract_base_id(read_id):
-    """
-    Extract the base read ID by removing segment information.
-    
-    Handles multiple read ID formats:
-    1. read_981729_len6991_err1.00pc_orig_start115774872_2_LA5 -> read_981729_len6991_err1.00pc_orig_start115774872
-    2. f389b71d-80f2-4cbd-98e6-2fd3a413ce69_3_CA2 -> f389b71d-80f2-4cbd-98e6-2fd3a413ce69
-    
-    For full reads without segment info, return the original read_id.
-    
-    Strategy: Check if the read_id ends with pattern _digit_alphanumeric
-    If yes, remove the last two underscore-separated parts.
-    """
-    parts = read_id.split("_")
-    
-    # Need at least 3 parts to have potential segment info
-    if len(parts) < 3:
-        return read_id
-    
-    # Check if last two parts match the segment pattern: _digit_label
-    try:
-        # Try to convert the second-to-last part to int (segment index)
-        segment_index = int(parts[-2])
-        segment_label = parts[-1]
-        
-        # Validate that segment_label is alphanumeric (like LA5, CA2, etc.)
-        if segment_label.isalnum():
-            # If successful, remove the last two parts to get base_id
-            base_parts = parts[:-2]
-            return "_".join(base_parts)
-        else:
-            # If segment_label is not alphanumeric, treat as full read
-            return read_id
-    except (ValueError, IndexError):
-        # If conversion fails, this is likely a full read without segment info
-        return read_id
-
-
 def get_segment_label(read_id):
     """
-    Extract the segment label from a read_id.
-    
-    Handles multiple read ID formats:
-    1. read_981729_len6991_err1.00pc_orig_start115774872_2_LA5 -> '2_LA5'
-    2. f389b71d-80f2-4cbd-98e6-2fd3a413ce69_3_CA2 -> '3_CA2'
-    
-    For full-read alignments (with no segment info), returns None.
+    Extract the segment label from a read_id using the improved parsing.
+    Returns the segment part (e.g., '2_LA5') or None if no segment info.
     """
-    parts = read_id.split("_")
+    base_id, segment_info = parse_read_id_structure(read_id)
+    return segment_info
+
+def get_read_ecotype(read_id):
+    """
+    Determines the ecotype (Col or Ler) from the segment label in read_id.
+    Uses the improved parsing to extract segment info.
+    Returns 'Col', 'Ler', or None if not clearly identifiable.
+    """
+    base_id, segment_info = parse_read_id_structure(read_id)
     
-    if len(parts) < 3:
+    if segment_info is None:
         return None
-    
-    try:
-        # Try to convert the second-to-last part to int (segment index)
-        segment_index = int(parts[-2])
-        segment_label = parts[-1]
         
-        # Validate that segment_label is alphanumeric (like LA5, CA2, etc.)
-        if segment_label.isalnum():
-            return f"{segment_index}_{segment_label}"
-        else:
-            return None
-    except (ValueError, IndexError):
-        return None
+    # Extract the label part (after the last underscore in segment_info)
+    segment_parts = segment_info.split("_")
+    if len(segment_parts) >= 2:
+        segment_label_suffix = segment_parts[1]  # e.g., 'LA5', 'CA2'
+        if segment_label_suffix.startswith('C'):  # e.g., CA1, CA2
+            return "Col"
+        elif segment_label_suffix.startswith('L'):  # e.g., LA1, LA2
+            return "Ler"
+        elif "Col" in segment_label_suffix:  # For cases where the label directly says 'Col'
+            return "Col"
+        elif "Ler" in segment_label_suffix:  # For cases where the label directly says 'Ler'
+            return "Ler"
+    return None
 
-
-
-
+# Test function to verify the parsing works correctly
 def test_read_id_parsing():
-    """Test function to verify read ID parsing works correctly"""
+    """Test the read ID parsing with various formats."""
     test_cases = [
-        # (input_read_id, expected_base_id, expected_segment_label)
-        ("read_981729_len6991_err1.00pc_orig_start115774872_2_LA5", 
-         "read_981729_len6991_err1.00pc_orig_start115774872", "2_LA5"),
-        ("f389b71d-80f2-4cbd-98e6-2fd3a413ce69_3_CA2", 
-         "f389b71d-80f2-4cbd-98e6-2fd3a413ce69", "3_CA2"),
-        ("simple_read_without_segments", 
-         "simple_read_without_segments", None),
-        ("read_with_one_underscore", 
-         "read_with_one_underscore", None),
-        ("read_123_not_segment", 
-         "read_123_not_segment", None),  # Last part not alphanumeric
+        "read_981729_len6991_err1.00pc_orig_start115774872_2_LA5",
+        "f389b71d-80f2-4cbd-98e6-2fd3a413ce69_3_CA2",
+        "simple_read_1_Col",
+        "no_segment_info",
+        "another_complex_read_name_with_underscores_5_LB3"
     ]
     
     print("Testing read ID parsing:")
-    for read_id, expected_base, expected_segment in test_cases:
-        base_id = extract_base_id(read_id)
-        segment_label = get_segment_label(read_id)
-        
-        base_correct = base_id == expected_base
-        segment_correct = segment_label == expected_segment
-        
-        print(f"Read ID: {read_id}")
-        print(f"  Base ID: {base_id} {'✓' if base_correct else '✗ Expected: ' + expected_base}")
-        print(f"  Segment: {segment_label} {'✓' if segment_correct else '✗ Expected: ' + str(expected_segment)}")
+    for read_id in test_cases:
+        base_id, segment = parse_read_id_structure(read_id)
+        ecotype = get_read_ecotype(read_id)
+        print(f"  {read_id}")
+        print(f"    -> base_id: '{base_id}'")
+        print(f"    -> segment: '{segment}'")
+        print(f"    -> ecotype: '{ecotype}'")
         print()
-
-test_read_id_parsing()
+   
 
 def load_alignments(file_paths):
     """
@@ -208,11 +205,13 @@ def select_best_alignment(aln_list):
     """
     Select the best alignment from a list based on AS - NM.
     In case of a tie, choose the one with a higher fraction of the query aligned.
+    This function does NOT consider expected ecotype for selection, only raw alignment quality.
     """
     best = None
     for rec in aln_list:
         score = similarity_score(rec)
         fraction = (rec['qend'] - rec['qstart']) / rec['qlen'] if rec['qlen'] > 0 else 0
+        
         if best is None:
             best = rec
             best_score = score
@@ -310,16 +309,13 @@ def process_read_segments(aln_list, coverage_tolerance=0.1):
     """
     For a given read, group alignments by segment label (using the segment index and label).
     For each segment group:
-      - If only one alignment exists, assign it as best.
-      - If multiple alignments exist, sort them by (AS - NM) descending.
-      - Then compare the top two alignments:
-          a. If their NM difference is exactly 1 and their target coverage (aln_block/tlen)
-             is similar (relative difference < coverage_tolerance), flag that segment group as "only_one_difference".
-             Additionally, if both alignments have query coverage >= 0.95, consider them similar.
-          b. If the top two alignments have identical (AS - NM) and identical similarity_score,
-             flag that segment group as an "inconclusive_tie".
-          c. Otherwise, assign the top alignment as best and the remaining as "other".
-    Returns four dictionaries keyed by segment label: best_segs, other_segs, one_diff_segs, tie_segs.
+        - Identify the best alignment based on raw score (AS - NM).
+        - If multiple alignments exist, check for one-difference or inconclusive ties.
+    Returns:
+        - best_segs: dictionary of best alignment(s) per segment group.
+        - other_segs: dictionary of remaining alignments per segment group.
+        - one_diff_segs: dictionary of segment groups with one-difference condition.
+        - tie_segs: dictionary of segment groups with inconclusive ties.
     """
     seg_groups = {}
     for rec in aln_list:
@@ -327,55 +323,58 @@ def process_read_segments(aln_list, coverage_tolerance=0.1):
         if seg is None:
             seg = "full"
         seg_groups.setdefault(seg, []).append(rec)
-    
+
     best_segs = {}
     other_segs = {}
     one_diff_segs = {}
     tie_segs = {}
-    
+
     for seg, recs in seg_groups.items():
         if len(recs) == 1:
             best_segs[seg] = recs
         else:
-            sorted_recs = sorted(recs, key=lambda r: (r['AS'] - r['NM']), reverse=True)
-            if len(sorted_recs) >= 2:
-                best_nm = sorted_recs[0]['NM']
-                second_nm = sorted_recs[1]['NM']
-                if abs(best_nm - second_nm) == 1:
-                    # Compute target coverage for both.
-                    cov1 = sorted_recs[0]['aln_block'] / sorted_recs[0]['tlen'] if sorted_recs[0]['tlen'] > 0 else 0
-                    cov2 = sorted_recs[1]['aln_block'] / sorted_recs[1]['tlen'] if sorted_recs[1]['tlen'] > 0 else 0
-                    # Also compute query coverage.
-                    qcov1 = (sorted_recs[0]['qend'] - sorted_recs[0]['qstart']) / sorted_recs[0]['qlen'] if sorted_recs[0]['qlen'] > 0 else 0
-                    qcov2 = (sorted_recs[1]['qend'] - sorted_recs[1]['qstart']) / sorted_recs[1]['qlen'] if sorted_recs[1]['qlen'] > 0 else 0
-                    # If both query coverages are high, treat as similar.
+            # Sort by raw score to determine top two candidates
+            sorted_recs_by_score = sorted(recs, key=similarity_score, reverse=True)
+
+            # Check for one-difference condition
+            if len(sorted_recs_by_score) >= 2:
+                top1_rec = sorted_recs_by_score[0]
+                top2_rec = sorted_recs_by_score[1]
+
+                if abs(top1_rec['NM'] - top2_rec['NM']) == 1:
+                    qcov1 = (top1_rec['qend'] - top1_rec['qstart']) / top1_rec['qlen'] if top1_rec['qlen'] > 0 else 0
+                    qcov2 = (top2_rec['qend'] - top2_rec['qstart']) / top2_rec['qlen'] if top2_rec['qlen'] > 0 else 0
+                    
                     if qcov1 >= 0.95 and qcov2 >= 0.95:
                         one_diff_segs[seg] = recs
                         continue
-                    # Otherwise, check relative difference in target coverage.
+                    
+                    cov1 = top1_rec['aln_block'] / top1_rec['tlen'] if top1_rec['tlen'] > 0 else 0
+                    cov2 = top2_rec['aln_block'] / top2_rec['tlen'] if top2_rec['tlen'] > 0 else 0
                     rel_diff = abs(cov1 - cov2) / max(cov1, cov2) if max(cov1, cov2) > 0 else 0
                     if cov1 > 0 and cov2 > 0 and rel_diff < coverage_tolerance:
                         one_diff_segs[seg] = recs
                         continue
-                score1 = sorted_recs[0]['AS'] - sorted_recs[0]['NM']
-                score2 = sorted_recs[1]['AS'] - sorted_recs[1]['NM']
-                sim1 = similarity_score(sorted_recs[0])
-                sim2 = similarity_score(sorted_recs[1])
-                if score1 == score2 and sim1 == sim2:
+
+                # Check for inconclusive tie
+                if similarity_score(top1_rec) == similarity_score(top2_rec):
                     tie_segs[seg] = recs
                     continue
-            best_segs[seg] = [sorted_recs[0]]
-            if len(sorted_recs) > 1:
-                other_segs[seg] = sorted_recs[1:]
+            
+            # If not one-diff or tie, select the single best and put others in 'other'
+            best_rec_for_seg = select_best_alignment(recs) # This uses the standard select_best_alignment
+            best_segs[seg] = [best_rec_for_seg]
+            other_segs[seg] = [r for r in recs if r != best_rec_for_seg]
+            
     return best_segs, other_segs, one_diff_segs, tie_segs
 
 def process_best_matches(aln_list, coverage_tolerance=0.1):
     """
     Process the alignments for a read to get the best match from each segment group.
     Returns:
-      - best_matches: list of best alignment records (one per segment group)
-      - best_segs: dictionary keyed by segment label (for further use)
-      - other_segs, one_diff_segs, tie_segs: as returned by process_read_segments.
+        - best_matches: list of best alignment records (one per segment group)
+        - best_segs: dictionary keyed by segment label (for further use)
+        - other_segs, one_diff_segs, tie_segs: as returned by process_read_segments.
     """
     best_segs, other_segs, one_diff_segs, tie_segs = process_read_segments(aln_list, coverage_tolerance)
     best_matches = []
@@ -395,7 +394,7 @@ def is_chimeric(groups, threshold=1000000):
     """
     if "Col" not in groups or "Ler" not in groups:
         return (False, "Both Col and Ler groups not present")
-    
+
     best_segments = {"Col": {}, "Ler": {}}
     for grp in ["Col", "Ler"]:
         for rec in groups[grp]:
@@ -403,8 +402,13 @@ def is_chimeric(groups, threshold=1000000):
             if label is None:
                 label = "full"
             aln_length = rec['qend'] - rec['qstart']
-            if label not in best_segments[grp] or aln_length > (best_segments[grp][label]['qend'] - best_segments[grp][label]['qstart']):
+            
+            current_best_for_label = best_segments[grp].get(label)
+            if current_best_for_label is None or \
+               similarity_score(rec) > similarity_score(current_best_for_label) or \
+               (similarity_score(rec) == similarity_score(current_best_for_label) and aln_length > (current_best_for_label['qend'] - current_best_for_label['qstart'])):
                 best_segments[grp][label] = rec
+
     comparisons = []
     chim_flag = False
     common_labels = set(best_segments["Col"].keys()).intersection(set(best_segments["Ler"].keys()))
@@ -417,12 +421,25 @@ def is_chimeric(groups, threshold=1000000):
             if diff > threshold:
                 chim_flag = True
     else:
-        best_col = max(groups["Col"], key=lambda x: (x['qend'] - x['qstart']))
-        best_ler = max(groups["Ler"], key=lambda x: (x['qend'] - x['qstart']))
-        diff = abs(best_col['tstart'] - best_ler['tstart'])
-        comparisons.append(f"(Overall: Col tstart={best_col['tstart']} vs Ler tstart={best_ler['tstart']}, diff={diff} bp)")
-        if diff > threshold:
-            chim_flag = True
+        if groups["Col"] and groups["Ler"]:
+            # Need to pick the best overall alignment from each group to compare
+            # This is done by taking the best alignment from the list of group alignments.
+            # `select_best_alignment` here does not care about expected ecotype, just raw score.
+            best_col = select_best_alignment(groups["Col"])
+            best_ler = select_best_alignment(groups["Ler"])
+
+            if best_col and best_ler:
+                diff = abs(best_col['tstart'] - best_ler['tstart'])
+                comparisons.append(f"(Overall: Col tstart={best_col['tstart']} vs Ler tstart={best_ler['tstart']}, diff={diff} bp)")
+                if diff > threshold:
+                    chim_flag = True
+            else:
+                details = "Could not find valid best alignments for comparison between Col and Ler groups."
+                return (False, details)
+        else:
+            details = "One or both ecotype groups (Col/Ler) are empty for chimera comparison."
+            return (False, details)
+
     details = "; ".join(comparisons)
     return (chim_flag, details)
 
@@ -430,15 +447,16 @@ def process_alignments(alignments, chimera_threshold=1000000, coverage_tolerance
     """
     Process alignments (grouped by base read id) and classify each read into one exclusive category.
     Order of processing:
-      1. Inversions (using all alignments)
-      2. Determine the best match per segment group (the "best matches" set)
-      3. From the best matches:
-           - Check if any segment group qualifies as only_one_difference (from the original segment groups)
-           - Check if any segment group is an inconclusive tie.
-           - Check if the best matches map to different chromosomes (chimeric_different_chromosomes)
-           - Else, check if they map to different arms (chimeric_different_arms)
-           - Else, check for coordinate-based chimera.
-      4. If none of the above, output the best matches as "best" (and others as "other").
+        1. Inversions (using all alignments)
+        2. Determine the best match per segment group. If any best match is to the 'wrong' ecotype,
+           classify the entire read as 'wrong_ecotype_best_alignment'.
+        3. For remaining reads:
+            - Check if any segment group qualifies as only_one_difference.
+            - Check if any segment group is an inconclusive tie.
+            - Check if the best matches map to different chromosomes (chimeric_different_chromosomes).
+            - Else, check if they map to different arms (chimeric_different_arms).
+            - Else, check for coordinate-based chimera.
+        4. If none of the above, output the best matches as "best" (and others as "other").
     """
     best_output = {}
     other_output = {}
@@ -448,9 +466,11 @@ def process_alignments(alignments, chimera_threshold=1000000, coverage_tolerance
     chimeras_output = {}
     diff_arms_output = {}
     diff_chrom_output = {}
+    wrong_ecotype_best_output = {} # New category
 
     for base_id, aln_list in alignments.items():
         print(f"Processing read {base_id} with {len(aln_list)} segments.")
+        
         # 1. Inversions.
         if has_inversion(aln_list):
             inv_details = get_inversion_details(aln_list)
@@ -458,8 +478,27 @@ def process_alignments(alignments, chimera_threshold=1000000, coverage_tolerance
             inversions_output[base_id] = [f"#{base_id}|inversion: {inv_details}\n"] + [rec['line'] for rec in aln_list]
             continue
 
-        # 2. Get best matches per segment group.
+        # 2. Get best matches per segment group based on raw score, and check for wrong ecotype mapping
         best_matches, best_segs, other_segs, one_diff_segs, tie_segs = process_best_matches(aln_list, coverage_tolerance)
+
+        # Check for segments whose best alignment is to the "wrong" ecotype
+        is_wrong_ecotype_mapping = False
+        wrong_ecotype_details = []
+        for seg_label, recs in best_segs.items():
+            if recs: # Ensure there's a record in best_segs for this segment
+                best_rec_for_seg = recs[0] # Get the single best record for this segment
+                expected_ecotype = get_read_ecotype(best_rec_for_seg['read_id'])
+                target_ecotype = "Col" if "Col" in best_rec_for_seg['target'] else ("Ler" if "Ler" in best_rec_for_seg['target'] else None)
+                
+                if expected_ecotype and target_ecotype and expected_ecotype != target_ecotype:
+                    is_wrong_ecotype_mapping = True
+                    wrong_ecotype_details.append(f"Segment {seg_label} (expected {expected_ecotype}) mapped best to {target_ecotype}")
+                    
+        if is_wrong_ecotype_mapping:
+            print(f"Read {base_id} flagged as wrong_ecotype_best_alignment. Details: {'; '.join(wrong_ecotype_details)}")
+            wrong_ecotype_best_output[base_id] = [f"#{base_id}|wrong_ecotype_best_alignment: {'; '.join(wrong_ecotype_details)}\n"] + \
+                                                  [rec['line'] for rec in sorted(aln_list, key=lambda x: x['qstart'])]
+            continue
 
         # 3a. Check one-difference.
         if one_diff_segs:
@@ -526,7 +565,7 @@ def process_alignments(alignments, chimera_threshold=1000000, coverage_tolerance
             other_output[base_id] = other_lines
         print(f"Read {base_id} classified; Best segments: {list(best_segs.keys())}; Other segments: {list(other_segs.keys())}")
     
-    return best_output, other_output, one_diff_output, tie_output, inversions_output, chimeras_output, diff_arms_output, diff_chrom_output
+    return best_output, other_output, one_diff_output, tie_output, inversions_output, chimeras_output, diff_arms_output, diff_chrom_output, wrong_ecotype_best_output
 
 def write_output(filename, data_dict):
     """
@@ -549,15 +588,17 @@ def main():
     parser.add_argument("-c", "--coverage_tolerance", type=float, default=0.1,
                         help="Coverage tolerance for one-difference condition (default 0.1).")
     args = parser.parse_args()
-    
+
     outdir = args.outdir
     os.makedirs(outdir, exist_ok=True)
     
+    test_read_id_parsing()
+    
     alignments = load_alignments(args.paf_files)
-    best_out, other_out, one_diff_out, tie_out, inversions_out, chimeras_out, diff_arms_out, diff_chrom_out = process_alignments(
+    best_out, other_out, one_diff_out, tie_out, inversions_out, chimeras_out, diff_arms_out, diff_chrom_out, wrong_ecotype_best_out = process_alignments(
         alignments, chimera_threshold=args.chimera_threshold, coverage_tolerance=args.coverage_tolerance
     )
-    
+
     write_output(os.path.join(outdir, "best_alignments.paf"), best_out)
     write_output(os.path.join(outdir, "other_alignments.paf"), other_out)
     write_output(os.path.join(outdir, "only_one_difference.paf"), one_diff_out)
@@ -566,7 +607,8 @@ def main():
     write_output(os.path.join(outdir, "chimeras.paf"), chimeras_out)
     write_output(os.path.join(outdir, "chimeric_different_arms.paf"), diff_arms_out)
     write_output(os.path.join(outdir, "chimeric_different_chromosomes.paf"), diff_chrom_out)
-    
+    write_output(os.path.join(outdir, "wrong_ecotype_best_alignment.paf"), wrong_ecotype_best_out) # New output file
+
     sys.stderr.write(f"Processed {len(alignments)} base read IDs.\n")
     sys.stderr.write(f"Best alignments written: {len(best_out)}\n")
     sys.stderr.write(f"Other alignments written: {len(other_out)}\n")
@@ -576,7 +618,7 @@ def main():
     sys.stderr.write(f"Coordinate-based chimeras written: {len(chimeras_out)}\n")
     sys.stderr.write(f"Chimeric_different_arms reads written: {len(diff_arms_out)}\n")
     sys.stderr.write(f"Chimeric_different_chromosomes reads written: {len(diff_chrom_out)}\n")
+    sys.stderr.write(f"Wrong ecotype best alignment reads written: {len(wrong_ecotype_best_out)}\n")
 
 if __name__ == "__main__":
     main()
-

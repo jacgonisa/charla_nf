@@ -2,7 +2,7 @@ import csv
 import re
 import sys
 
-def create_curated_profile(raw):
+def create_curated_profile(raw, readmer_cutoff):
     """
     Processes a raw profile string and returns a curated profile string.
     Entries with quality score lower than 11 or with abbreviation '0' are removed.
@@ -15,7 +15,7 @@ def create_curated_profile(raw):
             quality = int(quality)
         except ValueError:
             continue
-        if quality < 50:
+        if quality < readmer_cutoff:
             continue
         if code == "0":
             continue
@@ -221,13 +221,13 @@ def ectopic_classification(code1, code2):
     chrom = "intrachromosome" if num1 == num2 else "interchromosome"
     return f"yes|{access}|{chrom}"
 
-def process_read(readname, raw_profile, thresholds):
+def process_read(readname, raw_profile, thresholds, readmer_cutoff):
     """
     Given a read name and its raw profile, processes it across multiple thresholds.
     Returns a list of tuples with:
       (readname, threshold, curated_profile, super_curated_profile, ultra_curated_profile, hybrid, hybrid_type, ectopic)
     """
-    curated = create_curated_profile(raw_profile)
+    curated = create_curated_profile(raw_profile, readmer_cutoff)
     results = []
     for threshold in thresholds:
         supercurated = create_supercurated_profile(curated, threshold)
@@ -258,7 +258,8 @@ def process_read(readname, raw_profile, thresholds):
 def main():
     input_file = sys.argv[1]
     output_file = sys.argv[2]
-    thresholds = [5,10,20,30,50,75,100]
+    readmer_cutoff = int(sys.argv[3].strip())
+    thresholds = [10,20,30,35,40,45,50,75,100]
 
     # Open the output file for writing before processing any data
     with open(output_file, "w", newline="") as tsvfile:
@@ -276,7 +277,7 @@ def main():
                 if i + 1 < len(lines):
                     raw_profile = lines[i + 1].strip()
                     # Process the read and write the results progressively
-                    for row in process_read(readname, raw_profile, thresholds):
+                    for row in process_read(readname, raw_profile, thresholds, readmer_cutoff):
                         writer.writerow(row)
                 i += 2
             else:

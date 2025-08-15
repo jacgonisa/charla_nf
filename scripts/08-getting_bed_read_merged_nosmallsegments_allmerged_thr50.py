@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys
 
-def process_kmer_profile(read_name, profile, k=81):
+def process_kmer_profile(read_name, profile, k):
     """
     Given a read name and its kmer profile string, group contiguous tokens 
     (ignoring the numeric value after the colon) and return a list of tuples:
@@ -52,7 +52,7 @@ def merge_consecutive_by_code(segments):
     # Filter out isolated small segments.
     filtered = [
         seg for seg in segments
-        if not ((seg[2] - seg[1]) < 100 and seg[4] < 100)
+        if not ((seg[2] - seg[1]) < 50 and seg[4] < 50)
     ]
     if not filtered:
         return []
@@ -92,7 +92,7 @@ def read_curated_tsv(tsv_file):
             curated[read_name] = set(allowed_codes)
     return curated
 
-def main(kmer_profile_file, curated_tsv_file, outfile, k=81):
+def main(kmer_profile_file, curated_tsv_file, outfile, k):
     curated = read_curated_tsv(curated_tsv_file)
 
     with open(kmer_profile_file) as f:
@@ -138,9 +138,14 @@ def main(kmer_profile_file, curated_tsv_file, outfile, k=81):
             out.write(line + "\n")
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Usage: python3 script.py <input_kmer_profile.fa> <curated_tsv_file> <output.bed>")
+    if len(sys.argv) != 5:
+        print("Usage: python3 script.py <input_kmer_profile.fa> <curated_tsv_file> <output.bed> <k_size>")
         sys.exit(1)
-    main(sys.argv[1], sys.argv[2], sys.argv[3])
 
+    kmer_profile_file = sys.argv[1]
+    curated_tsv_file = sys.argv[2]
+    outfile = sys.argv[3]
+    k = int(sys.argv[4])  # Convert kmer_size to integer
+
+    main(kmer_profile_file, curated_tsv_file, outfile, k)
 

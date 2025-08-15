@@ -66,20 +66,23 @@ process MAPPING_ANALYSIS {
         mkdir -p "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_mm_sr"
         touch "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf"
     fi
-    
+   
+
+
+ 
     echo "Step 9.2: Detecting inversions, chimeras and crossovers..."
     
     # Step 9.2: Detect inversions, chimeras for ARMS
     if [[ -d "\${mapping_base}/ARMS_segments_alntoCol_alntoLer" && -s ${arms_segments_fasta} ]]; then
         cd "\${mapping_base}/ARMS_segments_alntoCol_alntoLer"
-        bash ${projectDir}/scripts/09.2-has_inversion_chimera_oneNM_tie_differentchromosomes_wrongecotyope.sh ./
+        bash ${projectDir}/scripts/09.2-has_inversion_chimera_oneNM_tie_differentchromosomes_wrongecotype.sh "${projectDir}/scripts/09.2-has_inversion_chimera_oneNM_tie_differentchromosomes_wrongecotype.py"  ./
         cd - > /dev/null
     fi
     
     # Step 9.2: Detect inversions, chimeras for CEN
     if [[ -d "\${mapping_base}/CEN_segments_alntoCol_alntoLer" && -s ${cen_segments_fasta} ]]; then
         cd "\${mapping_base}/CEN_segments_alntoCol_alntoLer"
-        bash ${projectDir}/scripts/09.2-has_inversion_chimera_oneNM_tie_differentchromosomes_wrongecotyope.sh ./
+        bash ${projectDir}/scripts/09.2-has_inversion_chimera_oneNM_tie_differentchromosomes_wrongecotype.sh "${projectDir}/scripts/09.2-has_inversion_chimera_oneNM_tie_differentchromosomes_wrongecotype.py" ./
         cd - > /dev/null
     fi
     
@@ -190,7 +193,7 @@ process MAPPING_ANALYSIS {
             touch "\${plotting_base}/CANDIDATE_reads_nonectopic_ARMS.bed_of_best.tsv"
         
         if [[ -s "\${plotting_base}/CANDIDATE_reads_nonectopic_ARMS.bed_of_best.tsv" ]]; then
-            python ${projectDir}/scripts/get_widths_co.py \\
+            python ${projectDir}/scripts/11-get_widths_co.py \\
                 "\${plotting_base}/CANDIDATE_reads_nonectopic_ARMS.bed_of_best.tsv" \\
                 "\${plotting_base}/CANDIDATE_reads_nonectopic_ARMS.bed_of_best.cowidths"
         else
@@ -208,7 +211,7 @@ process MAPPING_ANALYSIS {
             touch "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv"
         
         if [[ -s "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv" ]]; then
-            python ${projectDir}/scripts/get_widths_co.py \\
+            python ${projectDir}/scripts/11-get_widths_co.py \\
                 "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv" \\
                 "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.cowidths"
         else

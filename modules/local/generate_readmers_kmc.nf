@@ -1,5 +1,6 @@
 process generate_readmers_kmc {
     tag "${sample_id}"
+    publishDir "${params.outdir}/readmers", mode: 'symlink'
     
     input:
     tuple path(fasta_file), val(sample_id), val(kmer_size)
