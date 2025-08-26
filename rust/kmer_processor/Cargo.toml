@@ -1,0 +1,21 @@
+[package]
+name = "kmer_processor"
+version = "0.1.0"
+edition = "2021"
+authors = ["Jacob"]
+description = "High-performance k-mer count matrix processor for genomic data"
+
+[dependencies]
+clap = { version = "4.4", features = ["derive"] }
+glob = "0.3"
+rayon = "1.8"
+indicatif = "0.17"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 1

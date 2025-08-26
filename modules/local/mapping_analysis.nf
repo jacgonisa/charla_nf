@@ -130,22 +130,35 @@ process MAPPING_ANALYSIS {
     fi
     
     # Step 10: Get best read pairs for CEN
-    if [[ -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_table.csv" ]]; then
-        python ${projectDir}/scripts/10-get_best_read_pairs.py \\
-            "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_table.csv" \\
-            "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt"
-    else
-        touch "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt"
-    fi
+  #  if [[ -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_table.csv" ]]; then
+  #      python ${projectDir}/scripts/10-get_best_read_pairs.py \\
+  #          "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_table.csv" \\
+  #          "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt"
+  #  else
+  #      touch "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt"
+  #  fi
+   
+## Step 10: Get best read pairs for CEN
+CSV_FILE="\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_table.csv"
+if [[ -f "\$CSV_FILE" ]] && \
+   awk -F, 'NR==1 {exit !(/summary_lrhq/ && /summary_lrhqae/ && /summary_mm_ont/ && /summary_mm_sr/ && /summary_wm/)}' "\$CSV_FILE"; then
     
+    echo "Valid summary table with all required columns found for CEN. Getting best read pairs..."
+    python ${projectDir}/scripts/10-get_best_read_pairs.py \\
+        "\$CSV_FILE" \\
+        "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt"
+else
+    echo "CEN summary table is empty or missing required columns. Creating placeholder and continuing..."
+    touch "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt"
+fi 
     echo "Extracting PAF files for plotting..."
     
     # Extract PAF files for ARMS - Against Col
     if [[ -s "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" && \\
           -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" ]]; then
-        grep -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
+        grep -F -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
              "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" | \\
-             grep Col | cut -f1,6-9 > "\${plotting_base}/summary_mm_sr_ARMS_againstCol.paf" || \\
+             grep Col | cut -f1,6-9  > "\${plotting_base}/summary_mm_sr_ARMS_againstCol.paf" || \\
              touch "\${plotting_base}/summary_mm_sr_ARMS_againstCol.paf"
     else
         touch "\${plotting_base}/summary_mm_sr_ARMS_againstCol.paf"
@@ -154,7 +167,7 @@ process MAPPING_ANALYSIS {
     # Extract PAF files for CEN - Against Col
     if [[ -s "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" && \\
           -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" ]]; then
-        grep -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
+        grep -F -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
              "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" | \\
              grep Col | cut -f1,6-9 > "\${plotting_base}/summary_mm_sr_CEN_againstCol.paf" || \\
              touch "\${plotting_base}/summary_mm_sr_CEN_againstCol.paf"
@@ -165,7 +178,7 @@ process MAPPING_ANALYSIS {
     # Extract PAF files for ARMS - Against Ler
     if [[ -s "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" && \\
           -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" ]]; then
-        grep -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
+        grep -F -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
              "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" | \\
              grep Ler | cut -f1,6-9 > "\${plotting_base}/summary_mm_sr_ARMS_againstLer.paf" || \\
              touch "\${plotting_base}/summary_mm_sr_ARMS_againstLer.paf"
@@ -176,7 +189,7 @@ process MAPPING_ANALYSIS {
     # Extract PAF files for CEN - Against Ler
     if [[ -s "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" && \\
           -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" ]]; then
-        grep -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
+        grep -F -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" \\
              "\${mapping_base}/CEN_segments_alntoCol_alntoLer/summary_mm_sr/best_alignments.paf" | \\
              grep Ler | cut -f1,6-9 > "\${plotting_base}/summary_mm_sr_CEN_againstLer.paf" || \\
              touch "\${plotting_base}/summary_mm_sr_CEN_againstLer.paf"
@@ -188,7 +201,7 @@ process MAPPING_ANALYSIS {
     
     # Calculate CO widths for ARMS
     if [[ -s "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" && -s ${arms_bed_file} ]]; then
-        grep -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" ${arms_bed_file} > \\
+        grep -F -f "\${mapping_base}/ARMS_segments_alntoCol_alntoLer/best_best_other_reads.txt" ${arms_bed_file} > \\
             "\${plotting_base}/CANDIDATE_reads_nonectopic_ARMS.bed_of_best.tsv" || \\
             touch "\${plotting_base}/CANDIDATE_reads_nonectopic_ARMS.bed_of_best.tsv"
         
@@ -206,7 +219,7 @@ process MAPPING_ANALYSIS {
     
     # Calculate CO widths for CEN
     if [[ -s "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" && -s ${cen_bed_file} ]]; then
-        grep -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" ${cen_bed_file} > \\
+        grep -F -f "\${mapping_base}/CEN_segments_alntoCol_alntoLer/best_best_other_reads.txt" ${cen_bed_file} > \\
             "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv" || \\
             touch "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv"
         

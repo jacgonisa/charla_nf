@@ -10,7 +10,7 @@ process CURATE_HYBRID_PROFILES {
     // Define output prefix based on sample
     def output_prefix = "curated_hybrid_${params.sample_id}"
     
-    publishDir "${params.outdir}/hybrid_profiles", mode: 'copy'
+    publishDir "${params.outdir}/hybrid_profiles", mode: 'symlink'
     
     input:
     path hybrid_profiles_file  // Output from COMBINE_HYBRID_PROFILES
@@ -21,6 +21,11 @@ process CURATE_HYBRID_PROFILES {
     path "${output_prefix}_ultracurated.tsv", emit: ultracurated_table
     path "${output_prefix}_ultracurated_cut.tsv", emit: cut_table
     path "${output_prefix}_final_with_combo.tsv", emit: final_table
+
+   path "${output_prefix}_recombination_events.png", emit: events_plot
+    path "${output_prefix}_hybrid_types_stacked.png", emit: types_plot
+    path "${output_prefix}_ectopic_categories_stacked.png", emit: ectopic_plot
+    path "${output_prefix}_summary_stats.txt", emit: summary_stats
     
     script:
     """
@@ -42,5 +47,12 @@ echo "Arg 3: ${readmer_cutoff}"
     python ${projectDir}/scripts/07.1-summarize_table_hybrid_addcolumncombo_largestcombo_alsonorecombinants.py \\
         ${output_prefix}_ultracurated_cut.tsv \\
         ${output_prefix}_final_with_combo.tsv
+
+    ## Step 4: Generate summary plots from the final table
+    python ${projectDir}/scripts/07.2-plot_hybrid_summary.py \\
+        ${output_prefix}_final_with_combo.tsv \\
+        ${output_prefix}
+
+
     """
 }

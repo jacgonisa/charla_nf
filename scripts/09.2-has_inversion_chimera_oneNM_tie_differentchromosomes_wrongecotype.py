@@ -157,17 +157,85 @@ def test_read_id_parsing():
 def load_alignments(file_paths):
     """
     Read all alignments from the provided PAF files and group them by base read id.
+    This function handles both actual file paths and glob patterns.
     """
+    import glob
+    import os
+    
+    print(f"load_alignments called with: {file_paths}")
+    print(f"Current working directory: {os.getcwd()}")
+    
     alignments = {}
+    
+    # Handle both actual file paths and glob patterns
+    actual_files = []
     for file_path in file_paths:
-        with open(file_path, 'r') as f:
-            for line in f:
-                rec = parse_paf_line(line)
-                if rec is None:
-                    continue
-                base_id = rec['base_id']
-                alignments.setdefault(base_id, []).append(rec)
+        print(f"Processing path: '{file_path}'")
+        
+        if '*' in file_path or '?' in file_path:
+            # This is a glob pattern, expand it
+            print(f"  Detected glob pattern: {file_path}")
+            matched_files = glob.glob(file_path)
+            print(f"  Glob expansion found: {matched_files}")
+            
+            if not matched_files:
+                print(f"  Warning: No files found matching pattern: {file_path}")
+                continue
+            actual_files.extend(matched_files)
+        else:
+            # This is a regular file path
+            if os.path.exists(file_path):
+                print(f"  Found regular file: {file_path}")
+                actual_files.append(file_path)
+            else:
+                print(f"  Warning: File not found: {file_path}")
+    
+    if not actual_files:
+        print("INFO: No files found matching the specified patterns.")
+        print("This is normal - not all alignment types may be present in every directory.")
+        print("Debug info:")
+        print("  Arguments received:", file_paths)
+        print("  Files in current directory:")
+        try:
+            paf_files = [f for f in os.listdir('.') if f.endswith('.paf')]
+            if paf_files:
+                for f in paf_files:
+                    print(f"    {f}")
+            else:
+                print("    No .paf files found")
+        except Exception as e:
+            print(f"    Could not list directory: {e}")
+        
+        print("Continuing with empty alignment set...")
+        return {}  # Return empty dict instead of crashing
+    
+    print(f"Found {len(actual_files)} files to process:")
+    for f in actual_files:
+        print(f"  - {f}")
+    
+    # Process the actual files
+    for file_path in actual_files:
+        try:
+            print(f"Processing file: {file_path}")
+            with open(file_path, 'r') as f:
+                line_count = 0
+                for line in f:
+                    line_count += 1
+                    rec = parse_paf_line(line)
+                    if rec is None:
+                        continue
+                    base_id = rec['base_id']
+                    alignments.setdefault(base_id, []).append(rec)
+                print(f"  Processed {line_count} lines from {file_path}")
+        except Exception as e:
+            print(f"Error processing file {file_path}: {e}")
+            continue
+            
     print(f"Loaded alignments for {len(alignments)} base read IDs.")
+    
+    if len(alignments) == 0:
+        print("INFO: No alignments found. This will result in empty output files.")
+    
     return alignments
 
 def get_inversion_details(aln_list):

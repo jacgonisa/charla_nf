@@ -2,7 +2,7 @@ process process_cenhapmer_counts {
     tag "process_cenhapmer_counts"
     label 'cenhapmer_postprocessing'
     cpus params.cenhapmer_postproc_cpus ?: 20
-    memory params.cenhapmer_postproc_memory ?: '8 GB'
+    memory params.cenhapmer_postproc_memory ?: '32 GB'
     time params.cenhapmer_postproc_time ?: '4h'
     // --- CONDA ENVIRONMENT FOR DEPENDENCIES ---
     // This will create a Conda environment with numpy and seqkit
@@ -33,9 +33,9 @@ process process_cenhapmer_counts {
     
     # Pass the directory path directly to the Python script
     # Use script_file directly as it will be staged into the work directory
-    python3 ${script_file} \\
-        --base_dir ${cenhapmer_count_dir_path} \\
-        --total_reads \$TOTAL_READS \\
+    ${projectDir}/rust/kmer_processor/target/release/kmer_processor \\
+        --base-dir ${cenhapmer_count_dir_path} \\
+        --total-reads \$TOTAL_READS \\
         --output processed_cenhapmers/${output_name} \\
         --cpus ${task.cpus}
     """
