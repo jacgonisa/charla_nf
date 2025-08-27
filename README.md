@@ -67,8 +67,8 @@ Now, you can run the pipeline using:
 <!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
 
 ```bash
-nextflow run ../charla_nf/main.nf     --reads ../Col_Ler_F1_leaf_q20_1000bp_pore_firstmillion.fa     --sample_id ColLer_LEAF     --input_format fasta     --cenhapmer_db_dir $(realpath ../03-cenhapmers/k41)     --outdir results     --kmer_size 41     --cenhapmer_cpus 1     --cenhapmer_memory 50GB     --readmer_memory 50GB     --readmer_cpus 10     -profile local     -with-trace trace.txt -resume
 
+nextflow run charla_nf/main.nf --reads simulated_ont_chimeric_reads_1pc_chimeric_error_1pc.fasta --sample_id ColLer_1pc_chimeric_chimeric_error_1pc_k31 --input_format fasta --cenhapmer_db_dir /home/jg2070/Desktop/PhD/crossover/03-cenhapmers/k31 --reference_genomes_dir /home/jg2070/Desktop/PhD/crossover/index --outdir run_1pc_chimeric_chimeric_error_1pc_k31/results --kmer_size 31 --cenhapmer_cpus 1 --cenhapmer_memory 50GB --readmer_memory 50GB --readmer_cpus 10 --readmer_cutoff 10 -profile singularity -with-trace trace.txt -with-report report.html -with-timeline timeline.html -resume --col_bed_file only_kmer_pipeline/10-plotting_crossover/Col-0_renamed.bed --ler_bed_file only_kmer_pipeline/10-plotting_crossover/Ler-0_renamed.bed -work-dir run_1pc_chimeric_chimeric_error_1pc_k31/work
 
 
 ```
