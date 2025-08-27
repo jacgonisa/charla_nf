@@ -1,0 +1,19 @@
+Bootstrap: docker
+From: continuumio/miniconda3:latest
+
+%files
+    containers/environment_charla.yml /tmp/environment_charla.yml
+
+%post
+    # Create the Conda environment from your .yml file
+    conda env create -f /tmp/environment_charla.yml
+
+    # Add the environment activation to the containers environment
+    # This ensures that tools from your Conda environment are in the PATH
+    echo "source /opt/conda/etc/profile.d/conda.sh" >> $SINGULARITY_ENVIRONMENT
+    echo "conda activate charla_nf" >> $SINGULARITY_ENVIRONMENT
+
+%runscript
+    # The runscript is what is executed by default when the container is run.
+    # We will simply pass control to the users command.
+    exec "$@"
