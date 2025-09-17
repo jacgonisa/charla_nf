@@ -217,6 +217,19 @@ workflow CHARLA_NF {
         params.min_count              
     )
 
+
+    // ADD THE CLEANUP RIGHT HERE - after COMBINE_HYBRID_PROFILES completes
+    combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
+        def cenhapmer_dir = file("${workflow.launchDir}/${params.outdir}/cenhapmers")
+        if (cenhapmer_dir.exists()) {
+            log.info "🧹 Cleaning up entire cenhapmers directory to save disk space..."
+            if (cenhapmer_dir.deleteDir()) {
+                log.info "✅ Deleted cenhapmers directory"
+            }
+        }
+    }
+
+
     /*
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         Branch D: CURATE HYBRID PROFILES
