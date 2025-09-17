@@ -36,9 +36,18 @@ echo "Arg 2: ${output_prefix}_ultracurated.tsv"
 echo "Arg 3: ${readmer_cutoff}"
 
     # Step 1: Create the initial curated table
-    python ${projectDir}/scripts/07-create_table_hybrid_typecrossover_ultracurated.py \\
+#    python ${projectDir}/scripts/07-create_table_hybrid_typecrossover_ultracurated.py \\
+#        ${hybrid_profiles_file} \\
+#        ${output_prefix}_ultracurated.tsv ${readmer_cutoff}
+
+##Reimplementation of this step with Rust, due to high memory Killed error
+
+    ${projectDir}/rust/curate_profiles/target/release/curate_profiles \\
         ${hybrid_profiles_file} \\
-        ${output_prefix}_ultracurated.tsv ${readmer_cutoff}
+        ${output_prefix}_ultracurated.tsv \\
+        ${readmer_cutoff}
+
+
     
     # Step 2: Remove the third column
     cut -f1,2,4- ${output_prefix}_ultracurated.tsv > ${output_prefix}_ultracurated_cut.tsv

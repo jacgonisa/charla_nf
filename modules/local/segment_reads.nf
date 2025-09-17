@@ -74,27 +74,47 @@ fi
     echo "Step 8.3: Generating BED files..."
     
     # BED file for all filtered reads
-    python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
-        ../${hybrid_profiles_file} \\
-        \${output_prefix}_filtered.tsv \\
-        \${output_prefix}_filtered.bed ${kmer_size}
+ #   python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
+ #       ../${hybrid_profiles_file} \\
+ #       \${output_prefix}_filtered.tsv \\
+ #       \${output_prefix}_filtered.bed ${kmer_size}
+   
+   ${projectDir}/rust/bed_processor/target/release/bed_processor \\
+      ../${hybrid_profiles_file} \\
+       \${output_prefix}_filtered.tsv \\
+       \${output_prefix}_filtered.bed ${kmer_size}
+
     
+  
     # BED file for CEN candidates (if file exists and not empty)
     if [[ -s CANDIDATE_reads_nonectopic_CEN ]]; then
-        python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
-            ../${hybrid_profiles_file} \\
-            CANDIDATE_reads_nonectopic_CEN \\
-            CANDIDATE_reads_nonectopic_CEN.bed ${kmer_size}
+        #python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
+        #    ../${hybrid_profiles_file} \\
+        #    CANDIDATE_reads_nonectopic_CEN \\
+        #    CANDIDATE_reads_nonectopic_CEN.bed ${kmer_size}
+
+         ${projectDir}/rust/bed_processor/target/release/bed_processor \\
+      	 	../${hybrid_profiles_file} \\
+		CANDIDATE_reads_nonectopic_CEN \\
+                CANDIDATE_reads_nonectopic_CEN.bed ${kmer_size}
+    
+
     else
         touch CANDIDATE_reads_nonectopic_CEN.bed
     fi
     
     # BED file for ARMS candidates (if file exists and not empty)
     if [[ -s CANDIDATE_reads_nonectopic_ARMS ]]; then
-        python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
-            ../${hybrid_profiles_file} \\
-            CANDIDATE_reads_nonectopic_ARMS \\
-            CANDIDATE_reads_nonectopic_ARMS.bed ${kmer_size}
+        #python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
+        #    ../${hybrid_profiles_file} \\
+        #    CANDIDATE_reads_nonectopic_ARMS \\
+        #    CANDIDATE_reads_nonectopic_ARMS.bed ${kmer_size}
+
+     ${projectDir}/rust/bed_processor/target/release/bed_processor \\
+                ../${hybrid_profiles_file} \\
+                CANDIDATE_reads_nonectopic_ARMS \\
+                CANDIDATE_reads_nonectopic_ARMS.bed ${kmer_size}
+
     else
         touch CANDIDATE_reads_nonectopic_ARMS.bed
     fi
