@@ -1,58 +1,45 @@
 process FASTQ_TO_FASTA {
     tag "$meta.id"
     label 'process_low'
-    
-    conda "bioconda::seqtk=1.4"
+
+    // Software environment (if needed)
+    // conda "bioconda::seqkit=1.4 bioconda::biopython=1.81"
 
     input:
     tuple val(meta), path(fastq)
 
     output:
     tuple val(meta), path("*.fa"), emit: fasta
-    path "versions.yml"           , emit: versions
-
-    when:
-    task.ext.when == null || task.ext.when
+    tuple val(meta), path("*_quality_masked.fa"), optional: true, emit: masked_fasta
+    path "versions.yml", emit: versions
 
     script:
-    def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
+    // Put Groovy vars here so Nextflow parses them correctly
+    def prefix      = task.ext.prefix ?: "${meta.id}"
+    def min_quality = params.min_quality ?: 14
+    def do_masking  = params.do_quality_masking ?: false
+
     """
-    # Check if input is a valid FASTQ file
-    if ! head -n 4 $fastq | awk 'NR==1 && !/^@/ {exit 1} NR==3 && !/^\\+/ {exit 1}'; then
-        echo "ERROR: $fastq does not appear to be a valid FASTQ file"
-        exit 1
-    fi
-    
-    # Count number of reads
-    read_count=\$(wc -l < $fastq | awk '{print \$1/4}')
-    echo "Processing \$read_count reads from $fastq"
-    
-    # Convert FASTQ to FASTA using seqtk
+    # Convert original FASTQ → non-masked FASTA
     seqkit fq2fa $fastq > ${prefix}.fa
-    
-    # Verify output
-    fasta_count=\$(grep -c "^>" ${prefix}.fa)
-    echo "Generated \$fasta_count sequences in ${prefix}.fa"
-    
-    if [ "\$read_count" != "\$fasta_count" ]; then
-        echo "WARNING: Read count mismatch - FASTQ: \$read_count, FASTA: \$fasta_count"
-    fi
 
+    # Optionally produce a masked FASTA
+    ${do_masking ? """
+        echo "=== Creating quality-masked FASTA (Q < ${min_quality} → N) ==="
+        python3 ${projectDir}/scripts/quality_mask_fastq.py \
+            $fastq \
+            ${prefix}_quality_masked.fq \
+            ${min_quality}
+        seqkit fq2fa ${prefix}_quality_masked.fq > ${prefix}_quality_masked.fa
+        rm ${prefix}_quality_masked.fq
+    """ : ""}
+
+    # Versions
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        seqtk: \$(echo \$(seqtk 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
-    END_VERSIONS
-    """
-
-    stub:
-    def prefix = task.ext.prefix ?: "${meta.id}"
-    """
-    touch ${prefix}.fa
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        seqtk: \$(echo \$(seqtk 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
+        seqkit: \$(echo \$(seqkit 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
+        biopython: \$(python3 -c "import Bio; print(Bio.__version__)" 2>/dev/null || echo "unknown")
     END_VERSIONS
     """
 }
+

@@ -1,0 +1,214 @@
+#!/usr/bin/env python3
+import os
+import sys
+import pysam
+import csv
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+def analyze_bam_file(bam_path, output_prefix):
+    """
+    Analyze a BAM file for indels and generate both statistics and plots.
+    Returns dictionary with stats for the summary table.
+    """
+    if not os.path.exists(bam_path):
+        print(f"Warning: BAM file not found: {bam_path}")
+        return None
+    
+    try:
+        bamfile = pysam.AlignmentFile(bam_path, "rb")
+    except Exception as e:
+        print(f"Error opening BAM file {bam_path}: {e}")
+        return None
+    
+    # Collect data for analysis
+    indel_lengths = []
+    indel_details = []
+    total_reads = 0
+    mapped_reads = 0
+    reads_with_indels = set()
+    
+    # Parse all reads
+    for read in bamfile.fetch(until_eof=True):
+        total_reads += 1
+        
+        if read.is_unmapped:
+            continue
+        mapped_reads += 1
+        
+        if read.cigartuples is None:
+            continue
+            
+        query_pos = 0  # position in read
+        ref_pos = read.reference_start  # position on reference
+        
+        for op, length in read.cigartuples:
+            if op == 0:  # Match or mismatch (M)
+                query_pos += length
+                ref_pos += length
+            elif op == 1 and length > 10:  # Insertion > 10bp
+                indel_lengths.append(length)
+                reads_with_indels.add(read.query_name)
+                indel_details.append({
+                    "Read_ID": read.query_name,
+                    "Type": "Insertion",
+                    "Size": length,
+                    "Read_Pos": query_pos,
+                    "Ref_Pos": ref_pos
+                })
+                query_pos += length
+            elif op == 2 and length > 10:  # Deletion > 10bp
+                indel_lengths.append(length)
+                reads_with_indels.add(read.query_name)
+                indel_details.append({
+                    "Read_ID": read.query_name,
+                    "Type": "Deletion",
+                    "Size": length,
+                    "Read_Pos": query_pos,
+                    "Ref_Pos": ref_pos
+                })
+                ref_pos += length
+            elif op in [3, 4, 5]:  # Skip (N), soft clip (S), hard clip (H)
+                if op in [4, 5]:  # clipping affects read position
+                    query_pos += length
+                if op == 3:  # reference skip
+                    ref_pos += length
+    
+    bamfile.close()
+    
+    # Generate detailed TSV output
+    tsv_output = f"{output_prefix}_indel_positions.tsv"
+    with open(tsv_output, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=["Read_ID", "Type", "Size", "Read_Pos", "Ref_Pos"], delimiter="\t")
+        writer.writeheader()
+        for row in indel_details:
+            writer.writerow(row)
+    
+    # Generate histogram plot if we have indels
+    if indel_lengths:
+        plt.figure(figsize=(12, 8))
+        plt.hist(indel_lengths, bins=50, color="skyblue", edgecolor="black", alpha=0.7)
+        plt.title(f"Histogram of Indel Sizes (>10 bp) - {output_prefix}")
+        plt.xlabel("Indel size (bp)")
+        plt.ylabel("Count")
+        
+        # Add reference lines at 178, 356, 534... (centromeric repeat units)
+        max_length = max(indel_lengths) if indel_lengths else 0
+        reference_lines_added = False
+        for i in range(1, max_length // 178 + 2):
+            ref_line = i * 178
+            if ref_line <= max_length + 100:  # Add a bit of margin
+                plt.axvline(ref_line, color="red", linestyle="--", alpha=0.7, 
+                           label=f"178bp multiples" if not reference_lines_added else "")
+                reference_lines_added = True
+        
+        if reference_lines_added:
+            plt.legend()
+        
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        plot_output = f"{output_prefix}_indel_histogram.png"
+        plt.savefig(plot_output, dpi=300, bbox_inches='tight')
+        plt.close()
+        print(f"Generated plot: {plot_output}")
+    
+    # Calculate statistics
+    num_indels = len(indel_lengths)
+    avg_indel_size = sum(indel_lengths) / num_indels if num_indels > 0 else 0
+    indel_density = num_indels / mapped_reads if mapped_reads > 0 else 0
+    reads_with_indels_count = len(reads_with_indels)
+    
+    print(f"Analysis complete for {output_prefix}:")
+    print(f"  Total reads: {total_reads}")
+    print(f"  Mapped reads: {mapped_reads}")
+    print(f"  Indels (>10bp): {num_indels}")
+    print(f"  Reads with indels: {reads_with_indels_count}")
+    print(f"  Average indel size: {avg_indel_size:.2f} bp")
+    print(f"  Indel density: {indel_density:.4f} indels/read")
+    print(f"  Detailed results: {tsv_output}")
+    
+    return {
+        'total_reads': total_reads,
+        'mapped_reads': mapped_reads,
+        'indels': num_indels,
+        'avg_indel_size': round(avg_indel_size, 2),
+        'indel_density': round(indel_density, 4),
+        'reads_with_indels': reads_with_indels_count
+    }
+
+def main():
+    if len(sys.argv) != 3:
+        print("Usage: python3 11.2-indel_analysis.py <sequences_dir> <output_results.tsv>")
+        sys.exit(1)
+    
+    sequences_dir = sys.argv[1]
+    output_results = sys.argv[2]
+    
+    mappings_dir = os.path.join(sequences_dir, "mappings")
+    
+    if not os.path.exists(mappings_dir):
+        print(f"Error: Mappings directory not found: {mappings_dir}")
+        # Create empty results file
+        with open(output_results, 'w') as f:
+            f.write("haplotype\tmapping_mode\ttotal_reads\tmapped_reads\tindels\tavg_indel_size\tindel_density\treads_with_indels\n")
+        sys.exit(0)
+    
+    print("=== Starting indel analysis ===")
+    
+    # Initialize results
+    results = []
+    
+    # Process each BAM file
+    for bam_file in Path(mappings_dir).glob("*.bam"):
+        if bam_file.is_file():
+            # Extract haplotype and mapping mode from filename
+            basename = bam_file.stem  # removes .bam
+            parts = basename.split('_', 1)  # Split on first underscore
+            if len(parts) >= 2:
+                haplotype = parts[0]
+                mapping_mode = parts[1]
+            else:
+                haplotype = basename
+                mapping_mode = "unknown"
+            
+            output_prefix = os.path.join(mappings_dir, basename)
+            
+            print(f"\nProcessing {bam_file.name} (haplotype: {haplotype}, mode: {mapping_mode})")
+            
+            # Analyze this BAM file
+            stats = analyze_bam_file(str(bam_file), output_prefix)
+            
+            if stats:
+                results.append({
+                    'haplotype': haplotype,
+                    'mapping_mode': mapping_mode,
+                    **stats
+                })
+            else:
+                # Add empty result for failed analysis
+                results.append({
+                    'haplotype': haplotype,
+                    'mapping_mode': mapping_mode,
+                    'total_reads': 0,
+                    'mapped_reads': 0,
+                    'indels': 0,
+                    'avg_indel_size': 0,
+                    'indel_density': 0,
+                    'reads_with_indels': 0
+                })
+    
+    # Write summary results
+    with open(output_results, 'w') as f:
+        f.write("haplotype\tmapping_mode\ttotal_reads\tmapped_reads\tindels\tavg_indel_size\tindel_density\treads_with_indels\n")
+        for result in results:
+            f.write(f"{result['haplotype']}\t{result['mapping_mode']}\t{result['total_reads']}\t"
+                   f"{result['mapped_reads']}\t{result['indels']}\t{result['avg_indel_size']}\t"
+                   f"{result['indel_density']}\t{result['reads_with_indels']}\n")
+    
+    print(f"\n=== Indel analysis complete ===")
+    print(f"Summary results written to: {output_results}")
+    print(f"Individual plots and detailed results in: {mappings_dir}")
+
+if __name__ == "__main__":
+    main()
