@@ -82,6 +82,9 @@ jacgonisa/charla_nf was originally written by Jacob González Isa.
 
 We thank the following people for their extensive assistance in the development of this pipeline:
 
+- Namil Son
+- Matthew Naish
+
 <!-- TODO nf-core: If applicable, make list of people who have also contributed -->
 
 ## Contributions and Support
