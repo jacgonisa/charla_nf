@@ -110,11 +110,25 @@ fn main() -> Result<(), ProcessError> {
         std::fs::create_dir_all(parent)?;
     }
 
-    // Find all .txt files recursively
-    let pattern = format!("{}/**/*.txt", base_dir);
-    let mut files: Vec<PathBuf> = glob(&pattern)?
-        .filter_map(Result::ok)
-        .collect();
+    // Find all .txt files (both directly in base_dir and in subdirectories)
+    let pattern_direct = format!("{}/*.txt", base_dir);
+    let pattern_recursive = format!("{}/**/*.txt", base_dir);
+
+    let mut files: Vec<PathBuf> = Vec::new();
+
+    // Try direct pattern first
+    if let Ok(entries) = glob(&pattern_direct) {
+        files.extend(entries.filter_map(Result::ok));
+    }
+
+    // Then try recursive pattern
+    if let Ok(entries) = glob(&pattern_recursive) {
+        files.extend(entries.filter_map(Result::ok));
+    }
+
+    // Remove duplicates (in case a file matches both patterns)
+    files.sort();
+    files.dedup();
 
     if files.is_empty() {
         return Err(ProcessError(format!("No *.txt files found in {}", base_dir)));
