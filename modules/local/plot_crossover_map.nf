@@ -1,6 +1,6 @@
 process PLOT_CROSSOVER_MAP {
     tag "crossover_plot"
-    publishDir "${params.outdir}/crossover_plots", mode: 'copy'
+    publishDir "${params.outdir}/crossover_plots", mode: 'symlink'
     
     input:
     path col_bed                    // Col-0 BED file
@@ -18,319 +18,72 @@ process PLOT_CROSSOVER_MAP {
    // path "*.log", emit: log_files
     path "summary_mm_sr_ARMSandCEN_againstCol.paf", emit: col_merged_paf
     path "summary_mm_sr_ARMSandCEN_againstLer.paf", emit: ler_merged_paf
+    path "summary_mm_sr_ARMSandCEN_againstCol.filtered.paf", emit: col_filtered_paf
+    path "summary_mm_sr_ARMSandCEN_againstLer.filtered.paf", emit: ler_filtered_paf
+    path "high_coverage_regions_*againstCol*.bed", emit: col_high_coverage_bed
+    path "high_coverage_regions_*againstLer*.bed", emit: ler_high_coverage_bed
+    path "filtering_stats.txt", emit: filtering_stats
 
 script:
+def cluster_tolerance = params.cluster_tolerance ?: 50
+def max_cluster_count = params.max_cluster_count ?: 3
+
 """
+
 # First, concatenate PAF files
-echo "Concatenating PAF files..."
-cat ${col_arms_paf} ${col_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
-cat ${ler_arms_paf} ${ler_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
+    echo "=== Concatenating PAF files ===" | tee filtering_stats.txt
+    cat ${col_arms_paf} ${col_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
+    cat ${ler_arms_paf} ${ler_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
+    
+    # Count original alignments
+    col_original=\$(wc -l < summary_mm_sr_ARMSandCEN_againstCol.paf)
+    ler_original=\$(wc -l < summary_mm_sr_ARMSandCEN_againstLer.paf)
+    
+    echo "Original PAF alignments:" | tee -a filtering_stats.txt
+    echo "  Col-0: \${col_original}" | tee -a filtering_stats.txt
+    echo "  Ler-0: \${ler_original}" | tee -a filtering_stats.txt
+    echo "" | tee -a filtering_stats.txt
+    
+    echo "=== Filtering parameters ===" | tee -a filtering_stats.txt
+    echo "  Cluster tolerance: ${cluster_tolerance} bp" | tee -a filtering_stats.txt
+    echo "  Max reads per cluster: ${max_cluster_count}" | tee -a filtering_stats.txt
+    echo "" | tee -a filtering_stats.txt
+    
+    
+   
+    echo "=== Filtering Col-0 PAF ===" | tee -a filtering_stats.txt
+    awk -f ${projectDir}/scripts/13-filter_high_coverage_events.awk \
+        -v tol=${cluster_tolerance} \
+        -v max=${max_cluster_count} \
+        -v prefix="summary_mm_sr_ARMSandCEN_againstCol" \
+        summary_mm_sr_ARMSandCEN_againstCol.paf 2>> filtering_stats.txt
+
+echo "=== Filtering Ler-0 PAF ===" | tee -a filtering_stats.txt
+    awk -f ${projectDir}/scripts/13-filter_high_coverage_events.awk \
+        -v tol=${cluster_tolerance} \
+        -v max=${max_cluster_count} \
+        -v prefix="summary_mm_sr_ARMSandCEN_againstLer" \
+        summary_mm_sr_ARMSandCEN_againstLer.paf 2>> filtering_stats.txt
+
+    echo "" | tee -a filtering_stats.txt
+    echo "=== Filtering complete ===" | tee -a filtering_stats.txt
+  
+
 
 echo "PAF files concatenated successfully"
 echo "Starting R script..."
 
-# Now run R script
-Rscript - <<'EOF'
-
-
-
-# Load required libraries
-suppressPackageStartupMessages({
-    library(dplyr)
-    library(IRanges)
-    library(stringr)
-    library(ggplot2)
-})
-
-# Function to extract segment index from read_id
-extract_segment_index <- function(read_id) {
-    parts <- str_split(read_id, "_", simplify = TRUE)
-    if (ncol(parts) < 3) return(NA)
-
-    potential_index <- parts[, ncol(parts) - 1]
-    potential_label <- parts[, ncol(parts)]
-    
-    is_numeric <- !is.na(as.numeric(potential_index))
-    starts_with_LC <- str_detect(potential_label, "^[LC]")
-    
-    ifelse(is_numeric & starts_with_LC, as.numeric(potential_index), NA)
-}
-
-# Function to extract segment label from read_id
-extract_segment_label <- function(read_id) {
-    parts <- str_split(read_id, "_", simplify = TRUE)
-    if (ncol(parts) < 3) return(NA)
-    
-    potential_index <- parts[, ncol(parts) - 1]
-    potential_label <- parts[, ncol(parts)]
-    
-    is_numeric <- !is.na(as.numeric(potential_index))
-    starts_with_LC <- str_detect(potential_label, "^[LC]")
-    
-    ifelse(is_numeric & starts_with_LC, potential_label, NA)
-}
-
-# Function to extract base_id from read_id
-extract_base_id <- function(read_id) {
-    parts <- str_split(read_id, "_", simplify = TRUE)
-    if (ncol(parts) < 3) return(read_id)
-    
-    potential_index <- parts[, ncol(parts) - 1]
-    potential_label <- parts[, ncol(parts)]
-    
-    is_numeric <- !is.na(as.numeric(potential_index))
-    starts_with_LC <- str_detect(potential_label, "^[LC]")
-    
-    ifelse(is_numeric & starts_with_LC, 
-            apply(parts[, 1:(ncol(parts)-2), drop = FALSE], 1, paste, collapse = "_"),
-            read_id)
-}
-
-## STEP 1: Process BED Files (for both Col and Ler)
-process_bed <- function(bed_file, pattern_prefix) {
-    cat("Processing BED file:", bed_file, "\\n")
-    
-    bed <- read.table(bed_file, header = FALSE, stringsAsFactors = FALSE)
-    colnames(bed) <- c("region", "start", "end")
-    bed\$length <- bed\$end - bed\$start
-    bed\$chrom <- sapply(strsplit(bed\$region, "_"), `[`, 1)
-    
-    # Define the order based on pattern
-    bed\$order <- ifelse(grepl(paste0("ARMS_", pattern_prefix, "_1"), bed\$region), 1,
-                    ifelse(grepl(paste0("CEN_", pattern_prefix), bed\$region), 2,
-                    ifelse(grepl(paste0("ARMS_", pattern_prefix, "_2"), bed\$region), 3, NA)))
-    
-    bed <- bed[order(bed\$chrom, bed\$order), ]
-    
-    bed_offsets <- bed %>%
-        group_by(chrom) %>%
-        arrange(order) %>%
-        mutate(offset = cumsum(lag(length, default = 0))) %>%
-        ungroup()
-    
-    return(bed_offsets)
-}
-
-## STEP 2: Convert PAF Files (for both Col and Ler)
-# Function to process PAF file
-process_paf <- function(paf_file, bed_offsets) {
-    cat("Processing PAF file:", paf_file, "\\n")
-    
-    # Read the file assuming it has only 5 columns
-    paf <- read.table(paf_file, header = FALSE, stringsAsFactors = FALSE, sep = "\t") 
-    colnames(paf) <- c("read_id", "region", "ref_length", "start", "end")
-    
-       # --- DEBUGGING START ---
-    cat("\n--- DEBUG: First 5 rows of PAF after reading and naming columns ---\n")
-    print(head(paf, 5))
-    cat("--- END DEBUG ---\n\n")
-    # --- DEBUGGING END ---
-
- 
-    # Merge PAF with the computed offsets
-    paf_merged <- merge(paf, bed_offsets[, c("region", "chrom", "offset")], by = "region")
-    
-    # Translate mapping coordinates: add the fragment offset.
-    paf_merged <- paf_merged %>% mutate(
-        new_start = start + offset,
-        new_end = end + offset
-    )
-
-
-    
-    # Extract segment information
-#   paf_merged <- paf_merged %>%
-#        mutate(
-#            num_code = as.integer(str_split_fixed(read_id, "_", 3)[,2])
-#        ) %>%
-#        filter(num_code %in% c(1, 2, 3)) %>%
-#        mutate(pos = case_when(
-#            num_code == 1 ~ new_end,
-#            num_code %in% c(2, 3) ~ new_start
-#        ))
-#    
-#    return(paf_merged)
-#}
-
-    # Load the stringr library if it's not already
-    library(stringr)
-
-    # Extract segment information
-    paf_merged <- paf_merged %>%
-        mutate(
-            # NEW: Use a regular expression to robustly find the segment number
-            num_code = as.integer(str_match(read_id, "_([123])_")[, 2])
-        ) %>%
-        # NEW: Safely filter out reads where the pattern was not found (num_code is NA)
-        filter(!is.na(num_code)) %>%
-        mutate(pos = case_when(
-            num_code == 1 ~ new_end,
-            num_code %in% c(2, 3) ~ new_start
-        ))
-        # --- DEBUGGING START ---
-    cat("\n--- DEBUG: First 5 rows of PAF after ALL ---\n")
-    print(head(paf_merged, 5))
-    cat("--- END DEBUG ---\n\n")
-    # --- DEBUGGING END ---
-
-    return(paf_merged)
-}
+Rscript ${projectDir}/scripts/13-plot_crossover_map.R \
+    --col_bed ${col_bed} \
+    --ler_bed ${ler_bed} \
+    --col_paf summary_mm_sr_ARMSandCEN_againstCol.filtered.paf \
+    --ler_paf summary_mm_sr_ARMSandCEN_againstLer.filtered.paf \
+    --sample_name ${sample_name}
 
 
 
 
-## STEP 3: Calculate Coverage and Bin
-calculate_coverage <- function(paf_merged, chrom_lengths) {
-    coverage_list <- list()
-    chroms <- unique(paf_merged\$chrom)
 
-    for(ch in chroms) {
-        ch_data <- paf_merged %>% filter(chrom == ch)
-        total_length <- chrom_lengths %>% filter(chrom == ch) %>% pull(chrom_length)
-        
-        ranges <- IRanges(start = ch_data\$pos, width = 1)
-        cov <- coverage(ranges, width = total_length)
-        cov_vec <- as.vector(cov)
-        
-        df <- data.frame(
-            position = 1:total_length,
-            coverage = cov_vec,
-            chrom = ch
-        )
-        coverage_list[[ch]] <- df
-    }
-    
-    return(bind_rows(coverage_list))
-}
 
-# MAIN SCRIPT EXECUTION
-# Get the filenames and params from Nextflow
-col_bed_file <- "${col_bed}"
-ler_bed_file <- "${ler_bed}"
-sample_name <- "${sample_name}"
-threshold <- ${threshold}
-col_paf_file <- "summary_mm_sr_ARMSandCEN_againstCol.paf"
-ler_paf_file <- "summary_mm_sr_ARMSandCEN_againstLer.paf"
-
-cat("Starting crossover plot generation for sample:", sample_name, "\\n")
-
-# Process BED files
-bed_offsets_col <- process_bed(col_bed_file, "Col")
-bed_offsets_ler <- process_bed(ler_bed_file, "Ler")
-
-# Calculate chromosome lengths
-chrom_lengths_col <- bed_offsets_col %>%
-    group_by(chrom) %>%
-    summarise(chrom_length = max(offset + length)) %>%
-    ungroup()
-
-chrom_lengths_ler <- bed_offsets_ler %>%
-    group_by(chrom) %>%
-    summarise(chrom_length = max(offset + length)) %>%
-    ungroup()
-
-# Process PAF files
-paf_merged_col <- process_paf(col_paf_file, bed_offsets_col)
-paf_merged_ler <- process_paf(ler_paf_file, bed_offsets_ler)
-
-# Calculate coverage
-coverage_col <- calculate_coverage(paf_merged_col, chrom_lengths_col)
-coverage_ler <- calculate_coverage(paf_merged_ler, chrom_lengths_ler)
-
-# Add reference information
-coverage_col\$reference <- "Col"
-coverage_ler\$reference <- "Ler"
-
-# Bin the coverage data for smoother plotting
-binned_col <- coverage_col %>%
-    group_by(chrom) %>%
-    mutate(bin = cut(position, breaks = 1000, labels = FALSE)) %>%
-    group_by(chrom, bin) %>%
-    summarise(
-        position = mean(position),
-        coverage = mean(coverage),
-        .groups = "drop"
-    )
-
-binned_ler <- coverage_ler %>%
-    group_by(chrom) %>%
-    mutate(bin = cut(position, breaks = 1000, labels = FALSE)) %>%
-    group_by(chrom, bin) %>%
-    summarise(
-        position = mean(position),
-        coverage = mean(coverage),
-        .groups = "drop"
-    )
-
-## STEP 4: Get Centromere Coordinates and Plot
-# Centromere coordinates for Col
-cen_coords_col <- bed_offsets_col %>%
-    filter(order == 2) %>%
-    mutate(
-        cen_start = offset + 1,
-        cen_end = offset + length,
-        reference = "Col"
-    ) %>%
-    dplyr::select(chrom, cen_start, cen_end, reference)
-
-# Centromere coordinates for Ler
-cen_coords_ler <- bed_offsets_ler %>%
-    filter(order == 2) %>%
-    mutate(
-        cen_start = offset + 1,
-        cen_end = offset + length,
-        reference = "Ler"
-    ) %>%
-    dplyr::select(chrom, cen_start, cen_end, reference)
-
-# Create plot for Col
-p_col <- ggplot(binned_col, aes(x = position, y = coverage)) +
-    geom_rect(data = cen_coords_col,
-              aes(xmin = cen_start, xmax = cen_end, ymin = -Inf, ymax = Inf),
-              fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
-    geom_line() +
-    facet_wrap(~ chrom, scales = "free_x") +
-    labs(title = paste("Crossover Coverage Plot - Col Reference"),
-         subtitle = paste("Sample:", sample_name, "| Threshold:", threshold),
-         x = "Chromosome Position",
-         y = "Coverage") +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
-
-ggsave(paste0(sample_name, "_crossover_plot_Col_threshold", threshold, ".svg"),
-       plot = p_col, width = 12, height = 8, dpi = 300)
-
-# Create plot for Ler
-p_ler <- ggplot(binned_ler, aes(x = position, y = coverage)) +
-    geom_rect(data = cen_coords_ler,
-              aes(xmin = cen_start, xmax = cen_end, ymin = -Inf, ymax = Inf),
-              fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
-    geom_line() +
-    facet_wrap(~ chrom, scales = "free_x") +
-    labs(title = paste("Crossover Coverage Plot - Ler Reference"),
-         subtitle = paste("Sample:", sample_name, "| Threshold:", threshold),
-         x = "Chromosome Position",
-         y = "Coverage") +
-    theme_bw() +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
-
-ggsave(paste0(sample_name, "_crossover_plot_Ler_threshold", threshold, ".svg"),
-       plot = p_ler, width = 12, height = 8, dpi = 300)
-
-# Save combined coverage and binned data
-coverage_combined <- bind_rows(coverage_col, coverage_ler)
-binned_combined <- bind_rows(binned_col, binned_ler)
-
-write.table(coverage_combined,
-            paste0(sample_name, "_coverage_data_threshold", threshold, ".txt"),
-            sep = "\\t", row.names = FALSE, quote = FALSE)
-
-write.table(binned_combined,
-            paste0(sample_name, "_binned_coverage_threshold", threshold, ".txt"),
-            sep = "\\t", row.names = FALSE, quote = FALSE)
-
-cat("Crossover plot generation completed!\\n")
-
-EOF
 """
 }

@@ -254,7 +254,10 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
 
     // Create dependency barrier
     ch_cenhapmer_dir_path = all_cenhapmer_done
-        .map { files -> "${workflow.launchDir}/${params.outdir}/cenhapmers" }
+        .map { files ->
+            def outdir = params.outdir.replaceAll('/$', '')  // Remove trailing slash
+            "${workflow.launchDir}/${outdir}/cenhapmers"
+        }
 
     ch_script_file = Channel.fromPath("${baseDir}/rust/kmer_processor/target/release/kmer_processor")
     ch_fasta_for_postproc = processed_fasta_files.map { meta, fasta -> fasta }.first()
@@ -277,7 +280,8 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         error "ERROR: The --index_dir parameter must be provided for hybrid profile combination."
     }
 
-    ch_input_dir_for_hybrid = Channel.value("${workflow.launchDir}/${params.outdir}/cenhapmers")
+    def outdir_normalized = params.outdir.replaceAll('/$', '')  // Remove trailing slash
+    ch_input_dir_for_hybrid = Channel.value("${workflow.launchDir}/${outdir_normalized}/cenhapmers")
     ch_kmer_tsv = process_cenhapmer_counts_output.kmer_matrix
     ch_qc_file = get_counts_kmc.out
     ch_rust_binary = Channel.fromPath("${baseDir}/rust/combine_segment_fast_indixes/target/release/hybrid_profile_toolkit")
@@ -292,7 +296,8 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
 
     // ADD THE CLEANUP RIGHT HERE - after COMBINE_HYBRID_PROFILES completes
     combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
-        def cenhapmer_dir = file("${workflow.launchDir}/${params.outdir}/cenhapmers")
+        def outdir_clean = params.outdir.replaceAll('/$', '')  // Remove trailing slash
+        def cenhapmer_dir = file("${workflow.launchDir}/${outdir_clean}/cenhapmers")
         if (cenhapmer_dir.exists()) {
             log.info "🧹 Cleaning up entire cenhapmers directory to save disk space..."
             if (cenhapmer_dir.deleteDir()) {
