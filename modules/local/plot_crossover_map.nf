@@ -30,10 +30,24 @@ def max_cluster_count = params.max_cluster_count ?: 3
 
 """
 
-# First, concatenate PAF files
+# First, concatenate PAF files (handle missing CEN files gracefully)
     echo "=== Concatenating PAF files ===" | tee filtering_stats.txt
-    cat ${col_arms_paf} ${col_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
-    cat ${ler_arms_paf} ${ler_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
+
+    # Concatenate Col PAF files
+    if [[ -s "${col_cen_paf}" ]]; then
+        cat ${col_arms_paf} ${col_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
+    else
+        echo "Warning: CEN PAF file for Col is empty or missing, using only ARMS data" | tee -a filtering_stats.txt
+        cat ${col_arms_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
+    fi
+
+    # Concatenate Ler PAF files
+    if [[ -s "${ler_cen_paf}" ]]; then
+        cat ${ler_arms_paf} ${ler_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
+    else
+        echo "Warning: CEN PAF file for Ler is empty or missing, using only ARMS data" | tee -a filtering_stats.txt
+        cat ${ler_arms_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
+    fi
     
     # Count original alignments
     col_original=\$(wc -l < summary_mm_sr_ARMSandCEN_againstCol.paf)

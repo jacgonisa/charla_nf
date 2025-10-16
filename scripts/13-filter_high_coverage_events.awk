@@ -15,6 +15,9 @@ BEGIN {
     out_prefix = (prefix ? prefix : "filtered")   # default prefix
     out_paf = out_prefix ".filtered.paf"
     out_bed = "high_coverage_regions_" out_prefix ".bed"
+
+    # Initialize n to track if we have any data
+    n = 0
 }
 
 {
@@ -61,6 +64,16 @@ END {
             filtered_clusters++
             filtered_reads += count[i]
         }
+    }
+
+    # Always create output files, even if empty, to avoid Nextflow missing file errors
+    if (filtered_clusters == 0) {
+        print "# No high-coverage regions found" > out_bed
+    }
+
+    # Always create filtered PAF file, even if empty
+    if (kept_clusters == 0 && n == 0) {
+        print "# No alignments to filter" > out_paf
     }
 
     print "Filtering summary for prefix: " out_prefix > "/dev/stderr"

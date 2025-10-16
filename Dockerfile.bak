@@ -1,0 +1,214 @@
+# =============================================================================
+# Stage 1: Rust Builder Stage
+# =============================================================================
+FROM rust:latest AS rust-builder
+
+WORKDIR /usr/src/app
+
+# Copy Rust projects
+COPY rust/combine_segment_fast_indixes /usr/src/combine_segment_fast_indixes
+COPY rust/kmer_processor /usr/src/kmer_processor
+COPY rust/curate_profiles /usr/src/curate_profiles
+COPY rust/bed_processor /usr/src/bed_processor
+
+# Build all Rust binaries
+RUN cargo install --path /usr/src/combine_segment_fast_indixes --root /usr/local && \
+    cargo install --path /usr/src/kmer_processor --root /usr/local && \
+    cargo install --path /usr/src/curate_profiles --root /usr/local && \
+    cargo install --path /usr/src/bed_processor --root /usr/local
+
+# =============================================================================
+# Stage 2: KMC Builder Stage
+# =============================================================================
+FROM ubuntu:24.04 AS kmc-builder
+
+# Install necessary tools to add the deadsnakes PPA
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add the deadsnakes PPA for Python 3.10
+RUN add-apt-repository ppa:deadsnakes/ppa
+
+# Install all build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libz-dev \
+    libbz2-dev \
+    liblzma-dev \
+    libcurl4-openssl-dev \
+    git \
+    python3.10 \
+    python3.10-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Symlink python3 to python3.10
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+
+# Copy and build only the required KMC binaries (skip py_kmc_api)
+COPY kmc /usr/src/kmc
+WORKDIR /usr/src/kmc
+
+# Build only the command-line tools (no Python bindings)
+RUN make -j$(nproc) kmc kmc_tools get_counts_for_jacob get_counts_threads
+
+
+RUN cp bin/kmc bin/kmc_tools bin/get_counts_for_jacob bin/get_counts_threads /usr/local/bin/ && \
+    chmod +x /usr/local/bin/kmc /usr/local/bin/kmc_tools /usr/local/bin/get_counts_for_jacob /usr/local/bin/get_counts_threads
+
+
+# =============================================================================
+# Stage 3: Final Pipeline Image
+# =============================================================================
+FROM ubuntu:24.04 AS charla-nf
+# Install Miniconda (modern compatible version)
+RUN apt-get update && apt-get install -y wget bzip2 ca-certificates git curl && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+    bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
+    rm Miniconda3-latest-Linux-x86_64.sh && \
+    /opt/conda/bin/conda clean -afy
+ENV PATH="/opt/conda/bin:$PATH"
+
+
+# Set labels for metadata
+LABEL maintainer="Jacob Gonzalez Isa <jg2070@cam.ac.uk>"
+LABEL description="CHARLA-NF: Comprehensive pipeline for crossover analysis in long-read sequencing data"
+LABEL version="1.0.0"
+
+# Set environment variables
+ENV PATH="/opt/conda/envs/charla_nf/bin:$PATH" \
+    CONDA_DEFAULT_ENV="charla_nf" \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+
+WORKDIR /app
+
+# Install system dependencies for R and other tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # R dependencies
+    r-base \
+    r-base-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
+    libxml2-dev \
+    libfontconfig1-dev \
+    libharfbuzz-dev \
+    libfribidi-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libtiff5-dev \
+    libjpeg-dev \
+    # Additional utilities
+    wget \
+    curl \
+    git \
+    procps \
+    ca-certificates \
+    # Clean up
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the Conda environment file and create the environment
+COPY containers/environment_charla.yml .
+
+# Prevent conda-forge from trying to install incompatible sysroot_linux-64
+ENV CONDA_OVERRIDE_GLIBC=2.39
+
+# Remove problematic packages
+RUN sed -i '/sysroot_linux-64/d' environment_charla.yml && \
+    sed -i '/coreutils/d' environment_charla.yml
+
+# Configure channels and enable auto-accept TOS plugin
+RUN conda config --system --add channels conda-forge && \
+    conda config --system --add channels bioconda && \
+    conda config --system --add channels defaults && \
+    conda config --system --set plugins.auto_accept_tos true && \
+    conda env create -f environment_charla.yml && \
+    conda clean -afy
+
+
+# Activate conda environment by default
+SHELL ["conda", "run", "-n", "environment_charla", "/bin/bash", "-c"]
+
+# Install R packages
+RUN R -e "install.packages(c( \
+    'dplyr', \
+    'ggplot2', \
+    'stringr', \
+    'tidyr', \
+    'optparse', \
+     'argparse',    \
+    'BiocManager' \
+    ), repos='https://cloud.r-project.org/')" && \
+    R -e "BiocManager::install(c( \
+    'IRanges', \
+    'GenomicRanges', \
+    'Biostrings' \
+    ), ask=FALSE, update=FALSE)" && \
+    R -e "install.packages(c( \
+    'scales', \
+    'viridis', \
+    'patchwork', \
+    'RColorBrewer', \
+    'svglite' \
+    ), repos='https://cloud.r-project.org/')"
+
+# Copy compiled executables from builder stages
+# Rust executables
+COPY --from=rust-builder /usr/local/bin/hybrid_profile_toolkit /usr/local/bin/
+COPY --from=rust-builder /usr/local/bin/kmer_processor /usr/local/bin/
+COPY --from=rust-builder /usr/local/bin/curate_profiles /usr/local/bin/
+COPY --from=rust-builder /usr/local/bin/bed_processor /usr/local/bin/
+
+# KMC executables
+COPY --from=kmc-builder /usr/src/kmc/bin/kmc /usr/local/bin/
+COPY --from=kmc-builder /usr/src/kmc/bin/kmc_tools /usr/local/bin/
+COPY --from=kmc-builder /usr/src/kmc/bin/kmc_dump /usr/local/bin/
+
+# Make binaries executable
+RUN chmod +x /usr/local/bin/hybrid_profile_toolkit && \
+    chmod +x /usr/local/bin/kmer_processor && \
+    chmod +x /usr/local/bin/curate_profiles && \
+    chmod +x /usr/local/bin/bed_processor && \
+    chmod +x /usr/local/bin/kmc && \
+    chmod +x /usr/local/bin/kmc_tools && \
+    chmod +x /usr/local/bin/kmc_dump
+
+# Verify installations
+RUN echo "=== Verifying installations ===" && \
+    hybrid_profile_toolkit --version || echo "hybrid_profile_toolkit installed" && \
+    kmer_processor --version || echo "kmer_processor installed" && \
+    curate_profiles --version || echo "curate_profiles installed" && \
+    bed_processor --version || echo "bed_processor installed" && \
+    kmc || echo "KMC installed" && \
+    seqkit version && \
+    minimap2 --version && \
+    samtools --version && \
+    R --version && \
+    python --version && \
+    echo "=== All tools verified ==="
+
+
+# Copy scripts to a standard location in the container
+COPY scripts/ /opt/charla_scripts/
+
+# Create a symlink that matches ${projectDir} structure
+# This way ${projectDir}/scripts/ will work regardless of where projectDir actually is
+RUN mkdir -p /tmp/charla_nf && \
+    ln -s /opt/charla_scripts /tmp/charla_nf/scripts
+
+# Make scripts executable
+RUN chmod +x /opt/charla_scripts/* 2>/dev/null || true
+
+# Set working directory for data processing
+WORKDIR /data
+
+# Make conda environment activate by default
+RUN echo "source activate environment_charla" >> ~/.bashrc
+ENV PATH="/opt/conda/envs/environment_charla/bin:$PATH"
+
+# Set as default command
+SHELL ["/bin/bash", "-c"]
+
+# Default command
+#CMD ["/bin/bash"]

@@ -139,8 +139,9 @@ def analyze_bam_file(bam_path, output_prefix):
 
 def create_combined_plots_by_mapping_mode(results_data, output_dir):
     """
-    Create one comprehensive plot per mapping mode showing all haplotypes.
-    Each plot will have 2 rows x 5 columns (ARMS and CEN for Chr1-5)
+    Create comprehensive plots for indel size distribution.
+    Version 1: One plot per haplotype (separate Col and Ler)
+    Version 2: Combined plot with 4 distinct visual styles
     """
     # Group results by mapping mode
     mapping_modes = {}
@@ -149,61 +150,179 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
         if mode not in mapping_modes:
             mapping_modes[mode] = []
         mapping_modes[mode].append(item)
-    
-    # Create one plot per mapping mode
+
+    # VERSION 1: Separate plots per haplotype (background)
+    for mode, mode_data in mapping_modes.items():
+        # Group by background (Col vs Ler)
+        backgrounds = {}
+        for item in mode_data:
+            bg = item['background']
+            if bg not in backgrounds:
+                backgrounds[bg] = []
+            backgrounds[bg].append(item)
+
+        # Create one plot per background
+        for background, bg_data in backgrounds.items():
+            fig, axes = plt.subplots(2, 5, figsize=(20, 8))
+            fig.suptitle(f'Indel Size Distribution - {mode} - {background}',
+                        fontsize=16, fontweight='bold')
+
+            # Plot each haplotype
+            for item in bg_data:
+                region = item['region']
+                chrom = item['chromosome']
+
+                row = 0 if region == 'ARMS' else 1
+                col = int(chrom) - 1  # Chr1-5 -> columns 0-4
+
+                if col < 0 or col >= 5:
+                    continue
+
+                ax = axes[row, col]
+
+                insertions = item['insertion_lengths']
+                deletions = item['deletion_lengths']
+                all_indels = insertions + deletions
+
+                if all_indels:
+                    max_size = max(all_indels)
+                    bins = np.linspace(0, max_size, 50)
+
+                    # Plot histograms
+                    ax.hist(insertions, bins=bins, color='royalblue', alpha=0.6,
+                           label=f'Ins (n={len(insertions)})')
+                    ax.hist(deletions, bins=bins, color='tomato', alpha=0.6,
+                           label=f'Del (n={len(deletions)})')
+
+                    # Add 178bp multiple reference lines
+                    for i in range(1, int(max_size / 178) + 2):
+                        ref_line = i * 178
+                        if ref_line <= max_size + 100:
+                            ax.axvline(ref_line, color='gray', linestyle='--',
+                                     alpha=0.3, linewidth=0.5)
+
+                    # Add legend
+                    ax.legend(fontsize=8, loc='upper right', framealpha=0.9,
+                            edgecolor='black')
+                else:
+                    # If no indels, add a text annotation
+                    ax.text(0.5, 0.5, 'No indels', ha='center', va='center',
+                           transform=ax.transAxes, fontsize=10, style='italic')
+
+                # Set title and labels
+                title = f'Chr{chrom} - {region}'
+                ax.set_title(title, fontsize=10, fontweight='bold')
+
+                if col == 0:
+                    ax.set_ylabel('Count', fontsize=9)
+                if row == 1:
+                    ax.set_xlabel('Indel size (bp)', fontsize=9)
+
+                ax.tick_params(labelsize=8)
+
+            plt.tight_layout()
+            plot_filename = os.path.join(output_dir,
+                                        f'indel_histogram_{mode}_{background}.png')
+            plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
+            plt.close()
+            print(f"Generated plot: {plot_filename}")
+
+    # VERSION 2: Combined plots with 4 distinct visual styles (colors + hatching)
     for mode, mode_data in mapping_modes.items():
         fig, axes = plt.subplots(2, 5, figsize=(20, 8))
-        fig.suptitle(f'Indel Size Distribution - {mode}', fontsize=16, fontweight='bold')
-        
-        # Organize data by region and chromosome
+        fig.suptitle(f'Indel Size Distribution (Combined) - {mode}',
+                    fontsize=16, fontweight='bold')
+
+        # Aggregate data by region, chromosome, AND background
+        aggregated_data = {}
         for item in mode_data:
             region = item['region']
             chrom = item['chromosome']
-            
+            background = item['background']
+            key = (region, chrom)
+
+            if key not in aggregated_data:
+                aggregated_data[key] = {
+                    'Col': {'insertions': [], 'deletions': []},
+                    'Ler': {'insertions': [], 'deletions': []}
+                }
+
+            aggregated_data[key][background]['insertions'].extend(item['insertion_lengths'])
+            aggregated_data[key][background]['deletions'].extend(item['deletion_lengths'])
+
+        # Plot with distinct visual styles
+        for (region, chrom), data in aggregated_data.items():
             row = 0 if region == 'ARMS' else 1
             col = int(chrom) - 1  # Chr1-5 -> columns 0-4
-            
+
             if col < 0 or col >= 5:
                 continue
-            
+
             ax = axes[row, col]
-            
-            insertions = item['insertion_lengths']
-            deletions = item['deletion_lengths']
-            all_indels = insertions + deletions
-            
+
+            # Collect all indels to determine bin range
+            all_indels = (data['Col']['insertions'] + data['Col']['deletions'] +
+                         data['Ler']['insertions'] + data['Ler']['deletions'])
+
             if all_indels:
                 max_size = max(all_indels)
                 bins = np.linspace(0, max_size, 50)
-                
-                # Plot histograms
-                ax.hist(insertions, bins=bins, color='royalblue', alpha=0.6, 
-                       label=f'Ins (n={len(insertions)})')
-                ax.hist(deletions, bins=bins, color='tomato', alpha=0.6, 
-                       label=f'Del (n={len(deletions)})')
-                
+
+                # Plot with 4 distinct styles (2 colors x 2 hatch patterns)
+                # Col insertions - solid blue
+                if data['Col']['insertions']:
+                    ax.hist(data['Col']['insertions'], bins=bins,
+                           color='royalblue', alpha=0.5, edgecolor='darkblue',
+                           label=f"Col-Ins (n={len(data['Col']['insertions'])})")
+
+                # Col deletions - hatched blue
+                if data['Col']['deletions']:
+                    ax.hist(data['Col']['deletions'], bins=bins,
+                           color='lightskyblue', alpha=0.5, edgecolor='darkblue',
+                           hatch='///', linewidth=0.5,
+                           label=f"Col-Del (n={len(data['Col']['deletions'])})")
+
+                # Ler insertions - solid red
+                if data['Ler']['insertions']:
+                    ax.hist(data['Ler']['insertions'], bins=bins,
+                           color='tomato', alpha=0.5, edgecolor='darkred',
+                           label=f"Ler-Ins (n={len(data['Ler']['insertions'])})")
+
+                # Ler deletions - hatched red
+                if data['Ler']['deletions']:
+                    ax.hist(data['Ler']['deletions'], bins=bins,
+                           color='lightcoral', alpha=0.5, edgecolor='darkred',
+                           hatch='///', linewidth=0.5,
+                           label=f"Ler-Del (n={len(data['Ler']['deletions'])})")
+
                 # Add 178bp multiple reference lines
                 for i in range(1, int(max_size / 178) + 2):
                     ref_line = i * 178
                     if ref_line <= max_size + 100:
-                        ax.axvline(ref_line, color='gray', linestyle='--', alpha=0.3, linewidth=0.5)
-                
-                ax.legend(fontsize=8, loc='upper right')
-                ax.grid(True, alpha=0.2)
-            
+                        ax.axvline(ref_line, color='gray', linestyle='--',
+                                 alpha=0.3, linewidth=0.5)
+
+                # Add legend
+                ax.legend(fontsize=7, loc='upper right', framealpha=0.9,
+                        edgecolor='black')
+            else:
+                # If no indels, add a text annotation
+                ax.text(0.5, 0.5, 'No indels', ha='center', va='center',
+                       transform=ax.transAxes, fontsize=10, style='italic')
+
             # Set title and labels
             title = f'Chr{chrom} - {region}'
             ax.set_title(title, fontsize=10, fontweight='bold')
-            
+
             if col == 0:
                 ax.set_ylabel('Count', fontsize=9)
             if row == 1:
                 ax.set_xlabel('Indel size (bp)', fontsize=9)
-            
+
             ax.tick_params(labelsize=8)
-        
+
         plt.tight_layout()
-        plot_filename = os.path.join(output_dir, f'indel_histogram_{mode}.png')
+        plot_filename = os.path.join(output_dir, f'indel_histogram_{mode}_combined.png')
         plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
         plt.close()
         print(f"Generated combined plot: {plot_filename}")

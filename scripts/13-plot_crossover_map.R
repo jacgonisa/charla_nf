@@ -65,16 +65,39 @@ process_bed <- function(bed_file, pattern_prefix) {
 
 process_paf <- function(paf_file, bed_offsets) {
     cat("Processing PAF file:", paf_file, "\n")
-    
+
     if (!file.exists(paf_file)) {
         stop("ERROR: File not found: ", paf_file)
     }
-    
-    paf <- read.table(paf_file, header = FALSE, stringsAsFactors = FALSE, sep = "\t")
+
+    # Check if file is empty or only contains comments
+    lines <- readLines(paf_file, warn = FALSE)
+    data_lines <- lines[!grepl("^#", lines)]
+
+    if (length(data_lines) == 0) {
+        cat("  Warning: PAF file is empty (no data). Returning empty data frame.\n")
+        # Return empty data frame with correct column structure
+        return(data.frame(
+            read_id = character(0),
+            region = character(0),
+            ref_length = integer(0),
+            start = integer(0),
+            end = integer(0),
+            chrom = character(0),
+            offset = integer(0),
+            new_start = integer(0),
+            new_end = integer(0),
+            num_code = integer(0),
+            pos = integer(0),
+            stringsAsFactors = FALSE
+        ))
+    }
+
+    paf <- read.table(paf_file, header = FALSE, stringsAsFactors = FALSE, sep = "\t", comment.char = "#")
     colnames(paf) <- c("read_id", "region", "ref_length", "start", "end")
-    
+
     paf_merged <- merge(paf, bed_offsets[, c("region", "chrom", "offset")], by = "region")
-    
+
     paf_merged <- paf_merged %>%
         mutate(
             new_start = start + offset,
@@ -88,23 +111,41 @@ process_paf <- function(paf_file, bed_offsets) {
             num_code == 1 ~ new_end,
             num_code %in% c(2, 3) ~ new_start
         ))
-    
+
     return(paf_merged)
 }
 
 
 calculate_coverage <- function(paf_merged, chrom_lengths) {
+    # Handle empty PAF data
+    if (nrow(paf_merged) == 0) {
+        cat("  Warning: No PAF data to calculate coverage. Returning zero coverage.\n")
+        # Create zero coverage for all chromosomes
+        coverage_list <- list()
+        for (i in 1:nrow(chrom_lengths)) {
+            ch <- chrom_lengths$chrom[i]
+            total_length <- chrom_lengths$chrom_length[i]
+            df <- data.frame(
+                position = 1:total_length,
+                coverage = 0,
+                chrom = ch
+            )
+            coverage_list[[ch]] <- df
+        }
+        return(bind_rows(coverage_list))
+    }
+
     coverage_list <- list()
     chroms <- unique(paf_merged$chrom)
 
     for(ch in chroms) {
         ch_data <- paf_merged %>% filter(chrom == ch)
         total_length <- chrom_lengths %>% filter(chrom == ch) %>% pull(chrom_length)
-        
+
         ranges <- IRanges(start = ch_data$pos, width = 1)
         cov <- coverage(ranges, width = total_length)
         cov_vec <- as.vector(cov)
-        
+
         df <- data.frame(
             position = 1:total_length,
             coverage = cov_vec,
@@ -112,7 +153,7 @@ calculate_coverage <- function(paf_merged, chrom_lengths) {
         )
         coverage_list[[ch]] <- df
     }
-    
+
     return(bind_rows(coverage_list))
 }
 

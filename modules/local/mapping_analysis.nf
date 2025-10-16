@@ -91,28 +91,30 @@ process MAPPING_ANALYSIS {
     # Step 9.3: Make summary tables for ARMS
     if [[ -d "\${mapping_base}/ARMS_segments_alntoCol_alntoLer" ]]; then
         cd "\${mapping_base}/ARMS_segments_alntoCol_alntoLer"
-        if ls summary_* 1> /dev/null 2>&1; then
-            python ${projectDir}/scripts/09.3_makesummary.py summary_*
+        # Check if summary directories exist (not files)
+        if ls -d summary_*/ 1> /dev/null 2>&1; then
+            python ${projectDir}/scripts/09.3_makesummary.py summary_*/
             if [[ -f summary_table.csv ]]; then
                 python ${projectDir}/scripts/09.3_plotintersection.py summary_table.csv
             fi
         else
-            # Create empty summary table if no summary files exist
+            # Create empty summary table if no summary folders exist
             echo "read_id,status" > summary_table.csv
         fi
         cd - > /dev/null
     fi
-    
+
     # Step 9.3: Make summary tables for CEN
     if [[ -d "\${mapping_base}/CEN_segments_alntoCol_alntoLer" ]]; then
         cd "\${mapping_base}/CEN_segments_alntoCol_alntoLer"
-        if ls summary_* 1> /dev/null 2>&1; then
-            python ${projectDir}/scripts/09.3_makesummary.py summary_*
+        # Check if summary directories exist (not files)
+        if ls -d summary_*/ 1> /dev/null 2>&1; then
+            python ${projectDir}/scripts/09.3_makesummary.py summary_*/
             if [[ -f summary_table.csv ]]; then
                 python ${projectDir}/scripts/09.3_plotintersection.py summary_table.csv
             fi
         else
-            # Create empty summary table if no summary files exist
+            # Create empty summary table if no summary folders exist
             echo "read_id,status" > summary_table.csv
         fi
         cd - > /dev/null

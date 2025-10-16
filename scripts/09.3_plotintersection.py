@@ -14,6 +14,22 @@ def main():
     # Read the CSV file (read_id is the index)
     df = pd.read_csv(args.csvfile, index_col="read_id")
 
+    # Check if DataFrame is empty or has no columns
+    if df.empty or len(df.columns) == 0:
+        print("Warning: Input CSV is empty or has no data columns. Creating placeholder HTML.")
+        # Create a simple HTML file with a message
+        with open(args.outfile, 'w') as f:
+            f.write("""<!DOCTYPE html>
+<html>
+<head><title>No Data</title></head>
+<body>
+<h1>No Classification Data Available</h1>
+<p>The summary table is empty. No reads were classified in this analysis.</p>
+</body>
+</html>""")
+        print(f"Placeholder plot saved to {args.outfile}")
+        return
+
     # Optionally, if cells contain multiple classifications (separated by semicolons),
     # we take only the first classification.
     for col in df.columns:
