@@ -13,7 +13,9 @@
 
 ## Introduction
 
-**CHARLA** (**C**entromeric **H**aplotype **A**nalysis of **R**ecombination using **L**ong-reads of **A**rabidopsis) is a bioinformatics pipeline designed to detect and analyze crossover events in *Arabidopsis thaliana* hybrid pollen using long-read sequencing data (Oxford Nanopore or PacBio). The pipeline performs k-mer-based haplotype profiling to identify recombination events, including crossovers in centromeric regions, and generates comprehensive visualizations and analysis reports.
+**CHARLA** (**C**entromeric **H**aplotype **A**nalysis of **R**ecombination using **L**ong-reads of **A**rabidopsis) is a bioinformatics pipeline designed to detect and analyze crossover events in *Arabidopsis thaliana* hybrid pollen and sperm using long-read sequencing data (Oxford Nanopore or PacBio). The pipeline performs k-mer-based haplotype profiling to identify recombination events, including crossovers in centromeric regions, and generates comprehensive visualizations and analysis reports.
+
+**NEW**: CHARLA is now fully generalized to work with **any F1 hybrid cross**, not just Col×Ler! You can analyze crosses between different Arabidopsis accessions (e.g., Cvi×Est, Ws×Sha) or even potentially other species with configurable chromosome numbers.
 
 ### Pipeline Overview
 
@@ -106,17 +108,22 @@ nextflow run jacgonisa/charla_nf \
 | `--reads` | Path to input FASTQ or FASTA file containing sequencing reads |
 | `--sample_id` | Unique identifier for the sample |
 | `--input_format` | Input file format: `fastq` or `fasta` |
+| `--parent1_name` | Name of parent 1 accession (e.g., 'Col', 'Cvi', 'Ws') |
+| `--parent2_name` | Name of parent 2 accession (e.g., 'Ler', 'Est', 'Sha') |
+| `--parent1_bed` | BED file with genomic annotations for parent 1 reference |
+| `--parent2_bed` | BED file with genomic annotations for parent 2 reference |
 | `--cenhapmer_db_dir` | Directory containing pre-computed KMC databases for parental haplotypes |
 | `--reference_genomes_dir` | Directory containing reference genome FASTA files for both parents |
-| `--col_bed_file` | BED file with genomic annotations for Col-0 reference |
-| `--ler_bed_file` | BED file with genomic annotations for Ler-0 reference |
 | `--outdir` | Directory for output files |
 | `--kmer_size` | K-mer size for analysis (typically 21 or 31) |
+
+**Note**: For backward compatibility, `--col_bed_file` and `--ler_bed_file` are still supported but deprecated.
 
 ### Optional Parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
+| `--num_chromosomes` | `5` | Number of chromosomes (default for Arabidopsis) |
 | `--do_quality_masking` | `false` | Enable quality-based masking of low-quality bases in FASTQ files |
 | `--readmer_cutoff` | `10` | Minimum k-mer count threshold for readmer profiling |
 | `--min_count` | `25` | Minimum k-mer count for hybrid profile combination |
@@ -128,18 +135,20 @@ nextflow run jacgonisa/charla_nf \
 
 ### Example Commands
 
-#### Example 1: FASTQ Input with Quality Masking
+#### Example 1: Col×Ler F1 Pollen (FASTQ with Quality Masking)
 
 ```bash
 nextflow run jacgonisa/charla_nf \
-    --reads data/ColLer_F1_pollen_minq20.fq \
-    --sample_id ColLer_F1_pollen_minq20 \
+    --reads data/ColLer_F1_pollen.fq.gz \
+    --sample_id ColLer_F1_pollen \
     --input_format fastq \
+    --parent1_name Col \
+    --parent2_name Ler \
+    --parent1_bed annotations/Col-0.bed \
+    --parent2_bed annotations/Ler-0.bed \
     --cenhapmer_db_dir /path/to/cenhapmers/k21 \
     --reference_genomes_dir /path/to/references \
-    --col_bed_file annotations/Col-0_renamed.bed \
-    --ler_bed_file annotations/Ler-0_renamed.bed \
-    --outdir results/pollen_analysis \
+    --outdir results/ColLer_pollen \
     --kmer_size 21 \
     --do_quality_masking true \
     --readmer_cutoff 10 \
@@ -151,18 +160,39 @@ nextflow run jacgonisa/charla_nf \
     -resume
 ```
 
-#### Example 2: FASTA Input (Pre-processed Reads)
+#### Example 2: Cvi×Est F1 Sperm (Different Accessions)
 
 ```bash
 nextflow run jacgonisa/charla_nf \
-    --reads data/simulated_reads.fasta \
-    --sample_id simulation_k31 \
+    --reads data/CviEst_F1_sperm.fq.gz \
+    --sample_id CviEst_F1_sperm \
+    --input_format fastq \
+    --parent1_name Cvi \
+    --parent2_name Est \
+    --parent1_bed annotations/Cvi-0.bed \
+    --parent2_bed annotations/Est-1.bed \
+    --cenhapmer_db_dir /path/to/cenhapmers_CviEst/k31 \
+    --reference_genomes_dir /path/to/references \
+    --outdir results/CviEst_sperm \
+    --kmer_size 31 \
+    -profile singularity \
+    -resume
+```
+
+#### Example 3: Pre-processed FASTA Input
+
+```bash
+nextflow run jacgonisa/charla_nf \
+    --reads data/preprocessed.fasta \
+    --sample_id preprocessed_sample \
     --input_format fasta \
+    --parent1_name Col \
+    --parent2_name Ler \
+    --parent1_bed annotations/Col-0.bed \
+    --parent2_bed annotations/Ler-0.bed \
     --cenhapmer_db_dir /path/to/cenhapmers/k31 \
     --reference_genomes_dir /path/to/references \
-    --col_bed_file annotations/Col-0_renamed.bed \
-    --ler_bed_file annotations/Ler-0_renamed.bed \
-    --outdir results/simulation \
+    --outdir results/preprocessed \
     --kmer_size 31 \
     -profile singularity \
     -resume
