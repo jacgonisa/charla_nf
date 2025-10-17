@@ -1,0 +1,80 @@
+nextflow_process {
+
+    name "Test Process generate_histogram_kmc"
+    script "../generate_histogram_kmc.nf"
+    process "generate_histogram_kmc"
+    tag "modules"
+    tag "modules_local"
+    tag "generate_histogram_kmc"
+    tag "kmc"
+
+    setup {
+        // Run generate_readmers_kmc first to create KMC database
+        run("generate_readmers_kmc") {
+            script "../generate_readmers_kmc.nf"
+            process {
+                """
+                input[0] = tuple(
+                    file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
+                    'test_histo',
+                    21
+                )
+                """
+            }
+        }
+    }
+
+    test("Should generate k-mer histogram") {
+
+        when {
+            process {
+                """
+                input[0] = generate_readmers_kmc.out
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // Check that histogram file was created
+                { assert process.out.histo.size() == 1 },
+                { assert process.out.histo[0].toString().endsWith('.histo') },
+                { assert process.out.histo[0].exists() }
+            )
+        }
+    }
+
+    test("Should generate histogram for k=31") {
+
+        setup {
+            run("generate_readmers_kmc") {
+                script "../generate_readmers_kmc.nf"
+                process {
+                    """
+                    input[0] = tuple(
+                        file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
+                        'test_histo_k31',
+                        31
+                    )
+                    """
+                }
+            }
+        }
+
+        when {
+            process {
+                """
+                input[0] = generate_readmers_kmc.out
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out.histo[0].toString().contains('_k31_') }
+            )
+        }
+    }
+}

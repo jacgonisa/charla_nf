@@ -1,0 +1,92 @@
+nextflow_process {
+
+    name "Test Process get_counts_kmc"
+    script "../get_counts_kmc.nf"
+    process "get_counts_kmc"
+    tag "modules"
+    tag "modules_local"
+    tag "get_counts_kmc"
+    tag "kmc"
+
+    setup {
+        // Run generate_readmers_kmc first to create KMC database
+        run("generate_readmers_kmc") {
+            script "../generate_readmers_kmc.nf"
+            process {
+                """
+                input[0] = tuple(
+                    file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
+                    'test_sample',
+                    21
+                )
+                """
+            }
+        }
+    }
+
+    test("Should count k-mers per read") {
+
+        when {
+            process {
+                """
+                def kmc_pre = generate_readmers_kmc.out[0][0]
+                def kmc_suf = generate_readmers_kmc.out[0][1]
+                def fasta = file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true)
+                def sample_id = 'test_sample'
+                def kmer_size = 21
+
+                input[0] = tuple(kmc_pre, kmc_suf, fasta, sample_id, kmer_size)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                // Check that counts file was created
+                { assert process.out.size() == 1 },
+                { assert process.out[0].toString().endsWith('.counts.txt') },
+                { assert process.out[0].exists() }
+            )
+        }
+    }
+
+    test("Should generate counts with k=31") {
+
+        setup {
+            run("generate_readmers_kmc") {
+                script "../generate_readmers_kmc.nf"
+                process {
+                    """
+                    input[0] = tuple(
+                        file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
+                        'test_k31',
+                        31
+                    )
+                    """
+                }
+            }
+        }
+
+        when {
+            process {
+                """
+                def kmc_pre = generate_readmers_kmc.out[0][0]
+                def kmc_suf = generate_readmers_kmc.out[0][1]
+                def fasta = file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true)
+                def sample_id = 'test_k31'
+                def kmer_size = 31
+
+                input[0] = tuple(kmc_pre, kmc_suf, fasta, sample_id, kmer_size)
+                """
+            }
+        }
+
+        then {
+            assertAll(
+                { assert process.success },
+                { assert process.out[0].toString().contains('_k31_') }
+            )
+        }
+    }
+}
