@@ -1,0 +1,80 @@
+{
+    "Should convert FASTQ to FASTA without masking": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test_sample"
+                        },
+                        "test_sample.fa:md5,e5c98bd9d8546f6dca12b47f7284d800"
+                    ]
+                ],
+                "1": [
+                    
+                ],
+                "2": [
+                    "versions.yml:md5,f887c3c375f35f3e609a91c791df9ac1"
+                ],
+                "fasta": [
+                    [
+                        {
+                            "id": "test_sample"
+                        },
+                        "test_sample.fa:md5,e5c98bd9d8546f6dca12b47f7284d800"
+                    ]
+                ],
+                "masked_fasta": [
+                    
+                ],
+                "versions": [
+                    "versions.yml:md5,f887c3c375f35f3e609a91c791df9ac1"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2025-10-17T16:38:13.823840655"
+    },
+    "Should use stub run": {
+        "content": [
+            {
+                "0": [
+                    [
+                        {
+                            "id": "test_stub"
+                        },
+                        "test_stub.fa:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "1": [
+                    
+                ],
+                "2": [
+                    "versions.yml:md5,f887c3c375f35f3e609a91c791df9ac1"
+                ],
+                "fasta": [
+                    [
+                        {
+                            "id": "test_stub"
+                        },
+                        "test_stub.fa:md5,d41d8cd98f00b204e9800998ecf8427e"
+                    ]
+                ],
+                "masked_fasta": [
+                    
+                ],
+                "versions": [
+                    "versions.yml:md5,f887c3c375f35f3e609a91c791df9ac1"
+                ]
+            }
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2025-10-17T16:40:56.223033481"
+    }
+}

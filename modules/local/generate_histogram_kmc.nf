@@ -18,4 +18,9 @@ process generate_histogram_kmc {
         histogram \\
         "${sample_id}_k${kmer_size}_kmer_counts.histo"
     """
+
+    stub:
+    """
+    touch "${sample_id}_k${kmer_size}_kmer_counts.histo"
+    """
 }

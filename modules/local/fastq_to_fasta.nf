@@ -9,8 +9,8 @@ process FASTQ_TO_FASTA {
     tuple val(meta), path(fastq)
 
     output:
-    tuple val(meta), path("*.fa"), emit: fasta
-    tuple val(meta), path("*_quality_masked.fa"), optional: true, emit: masked_fasta
+    tuple val(meta), path("${meta.id}.fa"), emit: fasta
+    tuple val(meta), path("${meta.id}_quality_masked.fa"), optional: true, emit: masked_fasta
     path "versions.yml", emit: versions
 
     script:
@@ -35,6 +35,20 @@ process FASTQ_TO_FASTA {
     """ : ""}
 
     # Versions
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        seqkit: \$(echo \$(seqkit 2>&1) | sed 's/^.*Version: //; s/ .*\$//')
+        biopython: \$(python3 -c "import Bio; print(Bio.__version__)" 2>/dev/null || echo "unknown")
+    END_VERSIONS
+    """
+
+    stub:
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    def do_masking = params.do_quality_masking ?: false
+    """
+    touch ${prefix}.fa
+    ${do_masking ? "touch ${prefix}_quality_masked.fa" : ""}
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         seqkit: \$(echo \$(seqkit 2>&1) | sed 's/^.*Version: //; s/ .*\$//')

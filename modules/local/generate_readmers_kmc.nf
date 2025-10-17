@@ -40,4 +40,10 @@ process generate_readmers_kmc {
     
     echo "KMC completed successfully for ${sample_id}"
     """
+
+    stub:
+    """
+    touch ${sample_id}_k${kmer_size}_kmer_counts.kmc_pre
+    touch ${sample_id}_k${kmer_size}_kmer_counts.kmc_suf
+    """
 }

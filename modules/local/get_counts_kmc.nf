@@ -17,4 +17,9 @@ process get_counts_kmc {
         ${fastq} \\
         10 > ${sample_id}_k${kmer_size}_read_kmer_counts.txt
     """
+
+    stub:
+    """
+    touch ${sample_id}_k${kmer_size}_read_kmer_counts.txt
+    """
 }
