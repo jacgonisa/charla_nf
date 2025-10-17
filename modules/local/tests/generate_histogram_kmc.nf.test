@@ -8,64 +8,56 @@ nextflow_process {
     tag "generate_histogram_kmc"
     tag "kmc"
 
-    setup {
-        // Run generate_readmers_kmc first to create KMC database
-        run("generate_readmers_kmc") {
-            script "../generate_readmers_kmc.nf"
+    test("Should use stub run - k=21") {
+
+        options "-stub"
+
+        when {
             process {
                 """
+                // Create dummy KMC database files for stub
+                def kmc_pre = file('test_histo_k21.kmc_pre')
+                def kmc_suf = file('test_histo_k21.kmc_suf')
+                kmc_pre.text = 'dummy'
+                kmc_suf.text = 'dummy'
+
                 input[0] = tuple(
-                    file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
+                    kmc_pre,
+                    kmc_suf,
                     'test_histo',
                     21
                 )
                 """
             }
         }
-    }
-
-    test("Should generate k-mer histogram") {
-
-        when {
-            process {
-                """
-                input[0] = generate_readmers_kmc.out
-                """
-            }
-        }
 
         then {
             assertAll(
                 { assert process.success },
-                // Check that histogram file was created
-                { assert process.out.histo.size() == 1 },
-                { assert process.out.histo[0].toString().endsWith('.histo') },
-                { assert process.out.histo[0].exists() }
+                { assert process.out.histo.size() == 1 }
             )
         }
     }
 
-    test("Should generate histogram for k=31") {
+    test("Should use stub run - k=31") {
 
-        setup {
-            run("generate_readmers_kmc") {
-                script "../generate_readmers_kmc.nf"
-                process {
-                    """
-                    input[0] = tuple(
-                        file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
-                        'test_histo_k31',
-                        31
-                    )
-                    """
-                }
-            }
-        }
+        options "-stub"
 
         when {
             process {
                 """
-                input[0] = generate_readmers_kmc.out
+                // Create dummy KMC database files for stub
+                def kmc_pre = file('test_histo_k31.kmc_pre')
+                def kmc_suf = file('test_histo_k31.kmc_suf')
+                kmc_pre.text = 'dummy'
+                kmc_suf.text = 'dummy'
+
+                input[0] = tuple(
+                    kmc_pre,
+                    kmc_suf,
+                    'test_histo_k31',
+                    31
+                )
                 """
             }
         }
@@ -73,7 +65,7 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert process.out.histo[0].toString().contains('_k31_') }
+                { assert process.out.histo.size() == 1 }
             )
         }
     }

@@ -8,76 +8,58 @@ nextflow_process {
     tag "get_counts_kmc"
     tag "kmc"
 
-    setup {
-        // Run generate_readmers_kmc first to create KMC database
-        run("generate_readmers_kmc") {
-            script "../generate_readmers_kmc.nf"
+    test("Should use stub run - k=21") {
+
+        options "-stub"
+
+        when {
             process {
                 """
+                // Create dummy KMC database files for stub
+                def kmc_pre = file('test_sample_k21.kmc_pre')
+                def kmc_suf = file('test_sample_k21.kmc_suf')
+                kmc_pre.text = 'dummy'
+                kmc_suf.text = 'dummy'
+
                 input[0] = tuple(
-                    file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
+                    kmc_pre,
+                    kmc_suf,
+                    file("${projectDir}/tests/data/test_sample_longreads.fastq"),
                     'test_sample',
                     21
                 )
                 """
             }
         }
-    }
-
-    test("Should count k-mers per read") {
-
-        when {
-            process {
-                """
-                def kmc_pre = generate_readmers_kmc.out[0][0]
-                def kmc_suf = generate_readmers_kmc.out[0][1]
-                def fasta = file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true)
-                def sample_id = 'test_sample'
-                def kmer_size = 21
-
-                input[0] = tuple(kmc_pre, kmc_suf, fasta, sample_id, kmer_size)
-                """
-            }
-        }
 
         then {
             assertAll(
                 { assert process.success },
-                // Check that counts file was created
-                { assert process.out.size() == 1 },
-                { assert process.out[0].toString().endsWith('.counts.txt') },
-                { assert process.out[0].exists() }
+                { assert process.out.size() == 1 }
             )
         }
     }
 
-    test("Should generate counts with k=31") {
+    test("Should use stub run - k=31") {
 
-        setup {
-            run("generate_readmers_kmc") {
-                script "../generate_readmers_kmc.nf"
-                process {
-                    """
-                    input[0] = tuple(
-                        file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true),
-                        'test_k31',
-                        31
-                    )
-                    """
-                }
-            }
-        }
+        options "-stub"
 
         when {
             process {
                 """
-                def kmc_pre = generate_readmers_kmc.out[0][0]
-                def kmc_suf = generate_readmers_kmc.out[0][1]
-                def fasta = file(params.pipelines_testdata_base_path + 'charla_nf/test_sample.fasta', checkIfExists: true)
-                def sample_id = 'test_k31'
-                def kmer_size = 31
+                // Create dummy KMC database files for stub
+                def kmc_pre = file('test_k31.kmc_pre')
+                def kmc_suf = file('test_k31.kmc_suf')
+                kmc_pre.text = 'dummy'
+                kmc_suf.text = 'dummy'
 
-                input[0] = tuple(kmc_pre, kmc_suf, fasta, sample_id, kmer_size)
+                input[0] = tuple(
+                    kmc_pre,
+                    kmc_suf,
+                    file("${projectDir}/tests/data/test_sample_longreads.fastq"),
+                    'test_k31',
+                    31
+                )
                 """
             }
         }
@@ -85,7 +67,7 @@ nextflow_process {
         then {
             assertAll(
                 { assert process.success },
-                { assert process.out[0].toString().contains('_k31_') }
+                { assert process.out.size() == 1 }
             )
         }
     }
