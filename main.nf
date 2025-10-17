@@ -29,6 +29,18 @@ workflow {
     main:
     //
 
+    // Backward compatibility: convert old col/ler params to new parent params
+    if (params.col_bed_file && !params.parent1_bed) {
+        params.parent1_bed = params.col_bed_file
+        params.parent1_name = 'Col'
+        log.warn "⚠️  DEPRECATED: --col_bed_file is deprecated. Use --parent1_bed and --parent1_name instead."
+    }
+    if (params.ler_bed_file && !params.parent2_bed) {
+        params.parent2_bed = params.ler_bed_file
+        params.parent2_name = 'Ler'
+        log.warn "⚠️  DEPRECATED: --ler_bed_file is deprecated. Use --parent2_bed and --parent2_name instead."
+    }
+
 log.info "DEBUG: Selected profile: ${workflow.profile}"
 log.info "DEBUG: Configured output dir: ${params.outdir}"
 //log.info "DEBUG: Configured executor: ${workflow.config.process.executor ?: 'NOT SET'}"
@@ -56,18 +68,20 @@ log.info "DEBUG: Configured output dir: ${params.outdir}"
 
 
 
-// --- ADD: Create combinations of ACC, CAT, CHR ---
+// --- ADD: Create combinations of ACC, CAT, CHR (now using dynamic parent names) ---
 ch_kmc_combinations = Channel
-    .from(['Col', 'Ler'])
-    .flatMap { acc -> 
-        ['CEN', 'ARMS'].collectMany { cat -> 
-            (1..5).collect { chr -> 
-                [acc, cat, chr] 
-            } 
-        } 
+    .from([params.parent1_name, params.parent2_name])
+    .flatMap { acc ->
+        ['CEN', 'ARMS'].collectMany { cat ->
+            (1..params.num_chromosomes).collect { chr ->
+                [acc, cat, chr]
+            }
+        }
     }
 // Add debug to see what combinations are created
 ch_kmc_combinations.view { "KMC combinations: $it" }
+log.info "Using parent accessions: ${params.parent1_name} × ${params.parent2_name}"
+log.info "Number of chromosomes: ${params.num_chromosomes}"
 // --- END ADD ---
 
 

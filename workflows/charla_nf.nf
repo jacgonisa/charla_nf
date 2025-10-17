@@ -389,43 +389,43 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     */
 
     // Validate input BED files directory
-    if (!params.col_bed_file) {
-        error "ERROR: The --col_bed_file parameter must be provided for crossover plotting."
+    if (!params.parent1_bed) {
+        error "ERROR: The --parent1_bed parameter must be provided for crossover plotting."
     }
 
-    if (!params.ler_bed_file) {
-        error "ERROR: The --ler_bed_file parameter must be provided for crossover plotting."
+    if (!params.parent2_bed) {
+        error "ERROR: The --parent2_bed parameter must be provided for crossover plotting."
     }
 
-    // Create channels for BED files
-    ch_col_bed = Channel.fromPath(params.col_bed_file)
-        .ifEmpty { error "❌ Col BED file not found: ${params.col_bed_file}" }
+    // Create channels for BED files (now using generic parent names)
+    ch_parent1_bed = Channel.fromPath(params.parent1_bed)
+        .ifEmpty { error "❌ ${params.parent1_name} BED file not found: ${params.parent1_bed}" }
 
-    ch_ler_bed = Channel.fromPath(params.ler_bed_file)
-        .ifEmpty { error "❌ Ler BED file not found: ${params.ler_bed_file}" }
+    ch_parent2_bed = Channel.fromPath(params.parent2_bed)
+        .ifEmpty { error "❌ ${params.parent2_name} BED file not found: ${params.parent2_bed}" }
 
-    // Filter PAF files for different types and references
-    col_arms_paf_files = mapping_analysis_output.paf_files
+    // Filter PAF files for different types and references (now using dynamic parent names)
+    parent1_arms_paf_files = mapping_analysis_output.paf_files
         .flatten()
-        .filter { it.name.contains('ARMS_againstCol.paf') }
+        .filter { it.name.contains("ARMS_against${params.parent1_name}.paf") }
 
-    col_cen_paf_files = mapping_analysis_output.paf_files
+    parent1_cen_paf_files = mapping_analysis_output.paf_files
         .flatten()
-        .filter { it.name.contains('CEN_againstCol.paf') }
+        .filter { it.name.contains("CEN_against${params.parent1_name}.paf") }
 
-    ler_arms_paf_files = mapping_analysis_output.paf_files
+    parent2_arms_paf_files = mapping_analysis_output.paf_files
         .flatten()
-        .filter { it.name.contains('ARMS_againstLer.paf') }
+        .filter { it.name.contains("ARMS_against${params.parent2_name}.paf") }
 
-    ler_cen_paf_files = mapping_analysis_output.paf_files
+    parent2_cen_paf_files = mapping_analysis_output.paf_files
         .flatten()
-        .filter { it.name.contains('CEN_againstLer.paf') }
+        .filter { it.name.contains("CEN_against${params.parent2_name}.paf") }
 
     // Debug what we found
-    col_arms_paf_files.view { "Found Col ARMS PAF: $it" }
-    col_cen_paf_files.view { "Found Col CEN PAF: $it" }
-    ler_arms_paf_files.view { "Found Ler ARMS PAF: $it" }
-    ler_cen_paf_files.view { "Found Ler CEN PAF: $it" }
+    parent1_arms_paf_files.view { "Found ${params.parent1_name} ARMS PAF: $it" }
+    parent1_cen_paf_files.view { "Found ${params.parent1_name} CEN PAF: $it" }
+    parent2_arms_paf_files.view { "Found ${params.parent2_name} ARMS PAF: $it" }
+    parent2_cen_paf_files.view { "Found ${params.parent2_name} CEN PAF: $it" }
     
     // Now, run crossover plotting with the filtered channels.
    // crossover_plot_output = PLOT_CROSSOVER_MAP(
@@ -440,14 +440,14 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
    // )
 
 
-    // Now, run crossover plotting with the filtered channels.
+    // Now, run crossover plotting with the filtered channels (using generic parent references)
     crossover_plot_output = PLOT_CROSSOVER_MAP(
-    ch_col_bed.first(),
-    ch_ler_bed.first(),
-    col_arms_paf_files.first(),
-    col_cen_paf_files.first(),
-    ler_arms_paf_files.first(),
-    ler_cen_paf_files.first(),
+    ch_parent1_bed.first(),
+    ch_parent2_bed.first(),
+    parent1_arms_paf_files.first(),
+    parent1_cen_paf_files.first(),
+    parent2_arms_paf_files.first(),
+    parent2_cen_paf_files.first(),
     params.threshold ?: 50,
     params.sample_id
 )
