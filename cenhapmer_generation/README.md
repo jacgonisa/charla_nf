@@ -15,12 +15,13 @@ This directory contains a complete pipeline for generating **cenhapmers** (centr
 
 ## Overview
 
-The cenhapmer generation pipeline identifies k-mers that are unique to specific chromosome regions of each parent genome. This is accomplished through a four-step process:
+The cenhapmer generation pipeline identifies k-mers that are unique to specific chromosome regions of each parent genome. This is accomplished through a four-step process, with an optional fifth step for quality assessment:
 
 1. **Split genomes**: Separate each chromosome into centromere (CEN) and chromosome arm (ARMS) regions
 2. **Generate k-mers**: Use KMC to count all k-mers in each region
 3. **Create operations**: Generate KMC operation files to find unique k-mers
 4. **Execute operations**: Run KMC complex operations to generate final cenhapmer databases
+5. **Analyze markers** (optional): Assess marker density to determine optimal k-mer size
 
 ### What are cenhapmers?
 
@@ -299,7 +300,22 @@ Runs `kmc_tools complex` on each operation file to generate unique k-mer databas
     --bed_dir genome_annotations
 ```
 
-### Example 4: Parallel Processing with Cleanup
+### Example 4: With Marker Density Analysis (Recommended)
+
+```bash
+./generate_cenhapmers.sh \\
+    --parent1 Col-0 \\
+    --parent2 Ler-0 \\
+    --num_chr 5 \\
+    --kmer_sizes 21,31,41 \\
+    --threads 8 \\
+    --parallel 4 \\
+    --analyze-markers
+```
+
+This will generate additional plots and statistics to help you choose the best k-mer size.
+
+### Example 5: Parallel Processing with Cleanup
 
 ```bash
 ./generate_cenhapmers.sh \\
@@ -312,7 +328,7 @@ Runs `kmc_tools complex` on each operation file to generate unique k-mer databas
     --clean
 ```
 
-### Example 5: Resume from Specific Step
+### Example 6: Resume from Specific Step
 
 If a step failed, you can skip completed steps:
 
@@ -325,7 +341,7 @@ If a step failed, you can skip completed steps:
     --skip-step 2
 ```
 
-### Example 6: Running Individual Steps
+### Example 7: Running Individual Steps
 
 You can also run steps individually:
 
@@ -486,6 +502,96 @@ If you encounter issues:
 For further assistance:
 - GitHub Issues: https://github.com/jacgonisa/charla_nf/issues
 - CHARLA Documentation: https://github.com/jacgonisa/charla_nf/docs
+
+## Marker Density Analysis (Step 5)
+
+The optional marker density analysis step helps you choose the optimal k-mer size for your CHARLA analysis by visualizing how many unique markers (cenhapmers) are distributed across chromosomes.
+
+### Why Analyze Marker Density?
+
+Different k-mer sizes involve important tradeoffs:
+- **Smaller k (e.g., k=21)**: Fewer unique markers, less specific, but **more resilient to sequencing errors**
+- **Larger k (e.g., k=41)**: More unique markers, higher specificity, but **less tolerant of read errors**
+
+**Key insight**: A single sequencing error in a read will break a k=41 marker but may still preserve several k=21 markers from the same region. For noisy long reads, smaller k-mer sizes are often more robust.
+
+The marker density analysis provides:
+1. **Visual comparison** of marker distribution across chromosomes for different k-mer sizes
+2. **Quantitative statistics** on total markers per region (CEN vs ARMS)
+3. **Recommendations** for optimal k-mer size based on your data
+
+### Running Marker Density Analysis
+
+Add the `--analyze-markers` flag to your pipeline run:
+
+```bash
+./generate_cenhapmers.sh \\
+    --parent1 Col-0 \\
+    --parent2 Ler-0 \\
+    --kmer_sizes 21,31,41 \\
+    --analyze-markers
+```
+
+### Output Files
+
+The analysis generates:
+
+```
+05-marker_plots/
+├── marker_counts_per_chromosome.png      # Bar charts comparing k-mer sizes
+├── marker_counts_cen_vs_arms.png         # CEN vs ARMS distribution
+├── kmer_size_comparison.png              # Overall comparison
+├── marker_density_summary.txt            # Text summary with recommendations
+└── marker_density_summary.csv            # Detailed statistics (CSV format)
+```
+
+### Interpreting Results
+
+1. **Total Markers**: Higher is generally better (more coverage)
+2. **CEN vs ARMS Balance**: Both regions should have adequate markers
+3. **Chromosome Distribution**: Markers should be distributed across all chromosomes
+
+**Example Interpretation**:
+```
+K-mer size: 21
+  Total markers:   9,123,456
+  Mean per region: 456,173
+  Target density:  42 markers/kb (25th percentile)
+
+K-mer size: 31
+  Total markers:   12,456,789
+  Mean per region: 622,839
+  Target density:  120 markers/kb (25th percentile)
+
+K-mer size: 41
+  Total markers:   15,234,567
+  Mean per region: 763,728
+  Target density:  180 markers/kb (25th percentile)
+
+Note: Higher k-mer sizes generate MORE unique markers but are less resilient to errors
+Recommendation: k=21 or k=31 for Arabidopsis
+  - k=21: Best for noisy long reads (ONT, PacBio CLR)
+  - k=31: Good for high-quality reads (PacBio HiFi, Illumina)
+```
+
+### When to Use Which K-mer Size
+
+- **k=21**:
+  - ✅ Best for noisy long reads (ONT, older PacBio)
+  - ✅ More resilient to sequencing errors
+  - ✅ Faster processing
+  - ⚠️ Fewer unique markers, less specific
+
+- **k=31**:
+  - ✅ Good balance of error tolerance and specificity
+  - ✅ Recommended for high-quality long reads (PacBio HiFi)
+  - ✅ More markers than k=21
+
+- **k=41**:
+  - ✅ Maximum unique markers and specificity
+  - ✅ Best discrimination for complex genomes
+  - ⚠️ Requires high-quality reads (any error breaks the k-mer)
+  - ⚠️ Not recommended for noisy data
 
 ## Advanced Topics
 

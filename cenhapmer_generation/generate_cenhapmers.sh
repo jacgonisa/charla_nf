@@ -23,8 +23,9 @@
 #   --bed_dir DIR          Directory with BED files (default: annotations)
 #   --threads N            Number of threads for KMC (default: 4)
 #   --parallel N           Parallel kmc_tools processes (default: 1)
+#   --analyze-markers      Run marker density analysis (optional, recommended)
 #   --clean                Remove intermediate files after completion
-#   --skip-step N          Skip step N (1-4)
+#   --skip-step N          Skip step N (1-5)
 #   --help                 Show this help message
 #
 # Required Input Files:
@@ -48,6 +49,7 @@ FASTA_DIR="genomes"
 BED_DIR="annotations"
 THREADS=4
 PARALLEL=1
+ANALYZE_MARKERS=false
 CLEAN=false
 SKIP_STEPS=()
 
@@ -92,6 +94,10 @@ while [[ $# -gt 0 ]]; do
         --parallel)
             PARALLEL="$2"
             shift 2
+            ;;
+        --analyze-markers)
+            ANALYZE_MARKERS=true
+            shift
             ;;
         --clean)
             CLEAN=true
@@ -253,6 +259,48 @@ else
     echo ""
     echo "✅ Step 4 complete!"
     echo ""
+fi
+
+# ============================================================================
+# Step 5 (Optional): Analyze marker density
+# ============================================================================
+if [[ "$ANALYZE_MARKERS" == "true" ]]; then
+    if should_skip 5; then
+        echo "⏭️  Skipping Step 5: Marker density analysis"
+    else
+        echo "╔════════════════════════════════════════════════════════════╗"
+        echo "║ Step 5/5: Analyze marker density (optional)               ║"
+        echo "╚════════════════════════════════════════════════════════════╝"
+        echo ""
+
+        bash "${SCRIPT_DIR}/05-analyze_marker_density.sh" \
+            --cenhapmer_dir "03-cenhapmers" \
+            --genome_dir "$FASTA_DIR" \
+            --output_dir "04-marker_density" \
+            --parent1 "$PARENT1" \
+            --parent2 "$PARENT2" \
+            --kmer_sizes "$KMER_SIZES" \
+            --threads "$THREADS"
+
+        echo ""
+        echo "Generating visualizations..."
+        python3 "${SCRIPT_DIR}/06-plot_marker_density.py" \
+            --marker_dir "04-marker_density" \
+            --output_dir "05-marker_plots" \
+            --parent1 "$PARENT1" \
+            --parent2 "$PARENT2" \
+            --kmer_sizes "$KMER_SIZES" \
+            --num_chr "$NUM_CHR" \
+            --chr_prefix "$CHR_PREFIX"
+
+        echo ""
+        echo "✅ Step 5 complete!"
+        echo ""
+        echo "📊 Marker density analysis results:"
+        echo "   Analysis data: 04-marker_density/"
+        echo "   Plots:         05-marker_plots/"
+        echo ""
+    fi
 fi
 
 # ============================================================================
