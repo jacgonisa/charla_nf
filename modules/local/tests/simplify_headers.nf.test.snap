@@ -11,7 +11,7 @@
                     ]
                 ],
                 "1": [
-                    "versions.yml:md5,4c42e069dfb4e1df8b6aadb045ab7b86"
+                    "versions.yml:md5,44e0c3ab3d4cc778777deda33238ccb8"
                 ],
                 "fasta": [
                     [
@@ -22,7 +22,7 @@
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,4c42e069dfb4e1df8b6aadb045ab7b86"
+                    "versions.yml:md5,44e0c3ab3d4cc778777deda33238ccb8"
                 ]
             }
         ],
@@ -30,7 +30,7 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.6"
         },
-        "timestamp": "2025-10-17T16:32:07.957990569"
+        "timestamp": "2025-10-20T11:07:34.123785391"
     },
     "Should use stub run": {
         "content": [
@@ -44,7 +44,7 @@
                     ]
                 ],
                 "1": [
-                    "versions.yml:md5,60c470ee463a6ccf76ec3691912257d2"
+                    "versions.yml:md5,11d6840e16566738f3d7d865de3c0fae"
                 ],
                 "fasta": [
                     [
@@ -55,7 +55,7 @@
                     ]
                 ],
                 "versions": [
-                    "versions.yml:md5,60c470ee463a6ccf76ec3691912257d2"
+                    "versions.yml:md5,11d6840e16566738f3d7d865de3c0fae"
                 ]
             }
         ],
@@ -63,6 +63,6 @@
             "nf-test": "0.9.3",
             "nextflow": "25.04.6"
         },
-        "timestamp": "2025-10-17T16:32:35.050093631"
+        "timestamp": "2025-10-20T11:07:44.4173385"
     }
 }

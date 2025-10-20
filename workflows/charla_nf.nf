@@ -67,12 +67,8 @@ workflow CHARLA_NF {
         fastq_to_fasta_ch = fastq_ch | FASTQ_TO_FASTA
 
         // Separate the multi-output channel into individual channels
-//  fasta_ch = fastq_to_fasta_ch.fasta       // main FASTA output
-fasta_ch = fastq_to_fasta_ch.fasta.map { meta, files ->
-    // if multiple .fa files are emitted, keep only the non-masked one
-    def non_masked = files.find { !it.name.endsWith("_quality_masked.fa") }
-    tuple(meta, non_masked)
-}
+        // FASTQ_TO_FASTA emits a single non-masked FASTA file
+        fasta_ch = fastq_to_fasta_ch.fasta
 
 
     masked_fastq_ch = fastq_to_fasta_ch.masked_fasta   // quality-masked FASTQ

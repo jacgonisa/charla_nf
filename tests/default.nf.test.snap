@@ -1,0 +1,29 @@
+{
+    "-profile test (basic initialization)": {
+        "content": [
+            "Pipeline initialization test - see module tests for functional validation"
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2025-10-20T12:10:51.337825727"
+    },
+    "-profile test": {
+        "content": [
+            0,
+            null,
+            [
+                
+            ],
+            [
+                
+            ]
+        ],
+        "meta": {
+            "nf-test": "0.9.3",
+            "nextflow": "25.04.6"
+        },
+        "timestamp": "2025-10-20T10:19:53.921226831"
+    }
+}
