@@ -551,6 +551,26 @@ The analysis generates:
 2. **CEN vs ARMS Balance**: Both regions should have adequate markers
 3. **Chromosome Distribution**: Markers should be distributed across all chromosomes
 
+#### Example Visualizations (Arabidopsis Col-0)
+
+**Genome-wide marker coverage across chromosomes (10kb windows):**
+
+![Marker counts genome-wide](examples/arabidopsis_Col-0/Col-0_k21_10kb_marker_counts_chromosomes_row.png)
+
+*Marker density for k=21 across all 5 chromosomes. Each subplot shows marker counts per 10kb window along the chromosome.*
+
+**CEN vs ARMS marker density distributions (overlaid histograms):**
+
+<table>
+<tr>
+<td><img src="examples/arabidopsis_Col-0/k21_ARMS_CEN_overlaid_histogram.png" width="300"/><br/><b>k=21</b>: Lower marker density</td>
+<td><img src="examples/arabidopsis_Col-0/k31_ARMS_CEN_overlaid_histogram.png" width="300"/><br/><b>k=31</b>: Moderate marker density</td>
+<td><img src="examples/arabidopsis_Col-0/k41_ARMS_CEN_overlaid_histogram.png" width="300"/><br/><b>k=41</b>: Higher marker density</td>
+</tr>
+</table>
+
+*These histograms compare marker density between centromeric (CEN) and chromosome arm (ARMS) regions. Notice how **larger k-mer sizes produce MORE unique markers** in both regions, but remember they are **less resilient to sequencing errors**.*
+
 **Example Interpretation**:
 ```
 K-mer size: 21
