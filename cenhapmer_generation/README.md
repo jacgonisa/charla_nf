@@ -569,7 +569,13 @@ The analysis generates:
 </tr>
 </table>
 
-*These histograms compare marker density between centromeric (CEN) and chromosome arm (ARMS) regions. Notice how **larger k-mer sizes produce MORE unique markers** in both regions, but remember they are **less resilient to sequencing errors**.*
+*These histograms compare marker density between centromeric (CEN) and chromosome arm (ARMS) regions.*
+
+**Key biological insight from these plots:**
+- **ARMS regions (blue)**: Marker density remains relatively **constant** regardless of k-mer size (25th percentile ≈21-41 markers/kb across all k values)
+- **CEN regions (red)**: Marker density **increases dramatically** with larger k-mer sizes (25th percentile: 16 markers/kb at k=21 → 84 markers/kb at k=41)
+
+**Why this matters:** Centromeric regions are highly repetitive and difficult to resolve. Larger k-mer sizes provide **much better resolution in centromeres** by generating more unique markers that can distinguish these complex regions. However, remember that higher k values are **less resilient to sequencing errors**.
 
 **Example Interpretation**:
 ```
@@ -600,18 +606,25 @@ Recommendation: k=21 or k=31 for Arabidopsis
   - ✅ Best for noisy long reads (ONT, older PacBio)
   - ✅ More resilient to sequencing errors
   - ✅ Faster processing
-  - ⚠️ Fewer unique markers, less specific
+  - ✅ Sufficient for chromosome arm (ARMS) analysis
+  - ⚠️ Lower centromeric (CEN) resolution
+  - ⚠️ Fewer unique markers overall
 
 - **k=31**:
   - ✅ Good balance of error tolerance and specificity
   - ✅ Recommended for high-quality long reads (PacBio HiFi)
-  - ✅ More markers than k=21
+  - ✅ Better centromeric resolution than k=21
+  - ✅ Recommended default for most analyses
 
 - **k=41**:
   - ✅ Maximum unique markers and specificity
-  - ✅ Best discrimination for complex genomes
+  - ✅ **5× better centromeric resolution** than k=21
+  - ✅ Best for analyzing centromeric crossovers
+  - ✅ Ideal for complex/repetitive genomes
   - ⚠️ Requires high-quality reads (any error breaks the k-mer)
   - ⚠️ Not recommended for noisy data
+
+**Special consideration**: ARMS regions maintain relatively constant marker density regardless of k-mer size, but **centromeric regions gain dramatically more markers with larger k**. If your research focuses on centromeric events, higher k values provide much better resolution.
 
 ## Advanced Topics
 

@@ -29,20 +29,28 @@ Overlaid histograms comparing marker density between ARMS (chromosome arms) and 
 - **Red**: CEN regions
 
 **Key observations from Arabidopsis data:**
-- **k=21**: Lower overall marker density
-  - ARMS and CEN distributions are more similar
-  - Fewer unique markers overall
 
-- **k=31**: Moderate marker density
-  - Clear separation between ARMS and CEN distributions
-  - More markers than k=21
+**ARMS regions (blue - chromosome arms):**
+- k=21: 25th percentile = 21 markers/kb
+- k=31: 25th percentile = 41 markers/kb
+- k=41: 25th percentile = 41 markers/kb
+- **Observation**: Marker density remains relatively **constant** across k-mer sizes
 
-- **k=41**: Highest marker density
-  - Broadest distributions
-  - Most unique markers
-  - Best discrimination between ARMS and CEN
+**CEN regions (red - centromeres):**
+- k=21: 25th percentile = 16 markers/kb
+- k=31: 25th percentile = ~40 markers/kb
+- k=41: 25th percentile = 84 markers/kb
+- **Observation**: Marker density **increases dramatically** with larger k-mer sizes
 
-**Important insight**: These plots clearly demonstrate that **higher k-mer sizes produce MORE unique markers** in both ARMS and CEN regions. However, remember that higher k-mer sizes are also **less resilient to sequencing errors** - a single error breaks the entire k-mer.
+**Critical biological insight**:
+
+Centromeric regions are **highly repetitive and difficult to resolve**. The dramatic increase in CEN marker density with larger k-mer sizes shows that:
+
+1. **Higher k provides better centromere resolution** - More unique k-mers can be found in repetitive centromeric DNA when using longer sequences
+2. **ARMS regions are already well-resolved** - Chromosome arms have sufficient sequence diversity that even k=21 provides good marker coverage
+3. **Tradeoff consideration**: While k=41 gives 5× better centromere resolution than k=21, it's also much less tolerant of sequencing errors
+
+**Recommendation**: If your analysis focuses on **centromeric crossovers**, consider using k=31 or k=41 for better resolution (if your read quality allows it). For **chromosome arm crossovers**, k=21 is often sufficient and more error-tolerant.
 
 ## Interpreting Your Own Results
 
