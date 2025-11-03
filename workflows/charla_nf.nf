@@ -388,16 +388,9 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     def centromere_aware_mode = params.parent1_bed && params.parent2_bed
 
     if (centromere_aware_mode) {
-        log.info "[CHARLA_NF] Running in CENTROMERE-AWARE mode - crossover plotting enabled"
+        log.info "[CHARLA_NF] Running in CENTROMERE-AWARE mode - crossover plotting with centromere annotations"
 
-        // Create channels for BED files (now using generic parent names)
-        ch_parent1_bed = Channel.fromPath(params.parent1_bed)
-            .ifEmpty { error "❌ ${params.parent1_name} BED file not found: ${params.parent1_bed}" }
-
-        ch_parent2_bed = Channel.fromPath(params.parent2_bed)
-            .ifEmpty { error "❌ ${params.parent2_name} BED file not found: ${params.parent2_bed}" }
-
-        // Filter PAF files for different types and references (now using dynamic parent names)
+        // Filter PAF files for different types and references
         parent1_arms_paf_files = mapping_analysis_output.paf_files
             .flatten()
             .filter { it.name.contains("ARMS_against${params.parent1_name}.paf") }
@@ -420,10 +413,10 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         parent2_arms_paf_files.view { "Found ${params.parent2_name} ARMS PAF: $it" }
         parent2_cen_paf_files.view { "Found ${params.parent2_name} CEN PAF: $it" }
 
-        // Run crossover plotting with the filtered channels (using generic parent references)
+        // Run crossover plotting with centromere annotations
         crossover_plot_output = PLOT_CROSSOVER_MAP(
-            ch_parent1_bed.first(),
-            ch_parent2_bed.first(),
+            params.parent1_bed,
+            params.parent2_bed,
             parent1_arms_paf_files.first(),
             parent1_cen_paf_files.first(),
             parent2_arms_paf_files.first(),
@@ -432,9 +425,35 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
             params.sample_id
         )
     } else {
-        log.info "[CHARLA_NF] Running in CENTROMERE-UNAWARE mode - crossover plotting SKIPPED"
-        log.info "[CHARLA_NF] To enable crossover plotting, provide --parent1_bed and --parent2_bed parameters"
-        crossover_plot_output = null
+        log.info "[CHARLA_NF] Running in CENTROMERE-UNAWARE mode - chromosome-level crossover plotting"
+
+        // Filter PAF files for CHR (chromosome-level)
+        parent1_chr_paf_files = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("CHR_against${params.parent1_name}.paf") }
+
+        parent2_chr_paf_files = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("CHR_against${params.parent2_name}.paf") }
+
+        // Debug what we found
+        parent1_chr_paf_files.view { "Found ${params.parent1_name} CHR PAF: $it" }
+        parent2_chr_paf_files.view { "Found ${params.parent2_name} CHR PAF: $it" }
+
+        // Create empty channels for CEN files (not used in centromere-unaware mode)
+        empty_paf = Channel.fromPath("${projectDir}/README.md").first()  // Dummy file
+
+        // Run crossover plotting without centromere annotations
+        crossover_plot_output = PLOT_CROSSOVER_MAP(
+            "NA",  // No BED file for parent 1
+            "NA",  // No BED file for parent 2
+            parent1_chr_paf_files.first(),
+            empty_paf,  // Empty placeholder for parent1 CEN
+            parent2_chr_paf_files.first(),
+            empty_paf,  // Empty placeholder for parent2 CEN
+            params.threshold ?: 50,
+            params.sample_id
+        )
     }
 
 
@@ -493,9 +512,9 @@ non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
     paf_files = mapping_analysis_output.paf_files
     cowidth_files = mapping_analysis_output.cowidth_files
 
-    // Plotting output (only if centromere-aware mode)
-    crossover_plots = centromere_aware_mode ? crossover_plot_output.crossover_plots : Channel.empty()
-    coverage_data = centromere_aware_mode ? crossover_plot_output.coverage_data : Channel.empty()
+    // Plotting output (available in both centromere-aware and centromere-unaware modes)
+    crossover_plots = crossover_plot_output.crossover_plots
+    coverage_data = crossover_plot_output.coverage_data
  //   plot_log_files = crossover_plot_output.log_files
 
 // Non-hybrid analysis outputs

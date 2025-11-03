@@ -13,13 +13,15 @@ suppressPackageStartupMessages({
 ## Parse command-line arguments
 ## -------------------------------------------------------------------
 # Define arguments
-parser <- ArgumentParser(description = "Plot crossover coverage maps for Col and Ler references")
+parser <- ArgumentParser(description = "Plot crossover coverage maps for two parent references")
 
-parser$add_argument("--col_bed", required = TRUE, help = "Col-0 BED file")
-parser$add_argument("--ler_bed", required = TRUE, help = "Ler-0 BED file")
-parser$add_argument("--col_paf", required = TRUE, help = "Filtered Col-0 PAF file")
-parser$add_argument("--ler_paf", required = TRUE, help = "Filtered Ler-0 PAF file")
+parser$add_argument("--col_bed", required = FALSE, default = "NA", help = "Parent 1 BED file (optional for centromere-aware mode)")
+parser$add_argument("--ler_bed", required = FALSE, default = "NA", help = "Parent 2 BED file (optional for centromere-aware mode)")
+parser$add_argument("--col_paf", required = TRUE, help = "Filtered Parent 1 PAF file")
+parser$add_argument("--ler_paf", required = TRUE, help = "Filtered Parent 2 PAF file")
 parser$add_argument("--sample_name", required = TRUE, help = "Sample name for output")
+parser$add_argument("--parent1_name", required = FALSE, default = "Parent1", help = "Name of parent 1")
+parser$add_argument("--parent2_name", required = FALSE, default = "Parent2", help = "Name of parent 2")
 
 args <- parser$parse_args()
 
@@ -29,17 +31,83 @@ ler_bed_file <- args$ler_bed
 col_paf_file <- args$col_paf
 ler_paf_file <- args$ler_paf
 sample_name <- args$sample_name
+parent1_name <- args$parent1_name
+parent2_name <- args$parent2_name
 
-cat("Running crossover plot script for sample:", sample_name, "\n")
-cat("  Col BED:", col_bed_file, "\n")
-cat("  Ler BED:", ler_bed_file, "\n")
-cat("  Col PAF:", col_paf_file, "\n")
-cat("  Ler PAF:", ler_paf_file, "\n\n")
+# Detect mode
+centromere_aware <- (col_bed_file != "NA" && ler_bed_file != "NA" &&
+                     file.exists(col_bed_file) && file.exists(ler_bed_file))
+
+if (centromere_aware) {
+    cat("Running in CENTROMERE-AWARE mode\n")
+    cat("  Sample:", sample_name, "\n")
+    cat("  Parent 1 (", parent1_name, ") BED:", col_bed_file, "\n")
+    cat("  Parent 2 (", parent2_name, ") BED:", ler_bed_file, "\n")
+    cat("  Parent 1 PAF:", col_paf_file, "\n")
+    cat("  Parent 2 PAF:", ler_paf_file, "\n\n")
+} else {
+    cat("Running in CENTROMERE-UNAWARE mode (chromosome-level only)\n")
+    cat("  Sample:", sample_name, "\n")
+    cat("  Parent 1 (", parent1_name, ") PAF:", col_paf_file, "\n")
+    cat("  Parent 2 (", parent2_name, ") PAF:", ler_paf_file, "\n\n")
+}
 
 ## -------------------------------------------------------------------
 ## Define helper functions
 ## -------------------------------------------------------------------
 
+# Function for centromere-unaware mode: extract chromosome info from PAF
+process_paf_simple <- function(paf_file) {
+    cat("Processing PAF file (centromere-unaware mode):", paf_file, "\n")
+
+    if (!file.exists(paf_file)) {
+        stop("ERROR: File not found: ", paf_file)
+    }
+
+    # Check if file is empty
+    lines <- readLines(paf_file, warn = FALSE)
+    data_lines <- lines[!grepl("^#", lines)]
+
+    if (length(data_lines) == 0) {
+        cat("  Warning: PAF file is empty. Returning empty data frame.\n")
+        return(data.frame(
+            read_id = character(0),
+            region = character(0),
+            ref_length = integer(0),
+            start = integer(0),
+            end = integer(0),
+            chrom = character(0),
+            num_code = integer(0),
+            pos = integer(0),
+            stringsAsFactors = FALSE
+        ))
+    }
+
+    paf <- read.table(paf_file, header = FALSE, stringsAsFactors = FALSE, sep = "\t", comment.char = "#")
+    colnames(paf) <- c("read_id", "region", "ref_length", "start", "end")
+
+    # Extract chromosome name from region (e.g., "CHR_chr1" -> "chr1")
+    paf$chrom <- sapply(strsplit(paf$region, "_"), function(x) paste(x[-1], collapse="_"))
+
+    # Extract num_code from read_id (positions 1, 2, or 3)
+    paf$num_code <- as.integer(str_match(paf$read_id, "_([123])_")[, 2])
+    paf <- paf %>% filter(!is.na(num_code))
+
+    # Calculate position based on num_code
+    paf$pos <- ifelse(paf$num_code == 1, paf$end, paf$start)
+
+    return(paf)
+}
+
+# Function to get chromosome lengths from PAF (centromere-unaware mode)
+get_chrom_lengths_from_paf <- function(paf_data) {
+    chrom_lengths <- paf_data %>%
+        group_by(chrom) %>%
+        summarise(chrom_length = max(ref_length), .groups = "drop")
+    return(chrom_lengths)
+}
+
+# Original function for centromere-aware mode
 process_bed <- function(bed_file, pattern_prefix) {
     cat("Processing BED file:", bed_file, "\n")
     bed <- read.table(bed_file, header = FALSE, stringsAsFactors = FALSE)
@@ -161,30 +229,66 @@ calculate_coverage <- function(paf_merged, chrom_lengths) {
 ## Main logic
 ## -------------------------------------------------------------------
 
-# Process BEDs
-bed_offsets_col <- process_bed(col_bed_file, "Col")
-bed_offsets_ler <- process_bed(ler_bed_file, "Ler")
+if (centromere_aware) {
+    ## CENTROMERE-AWARE MODE: Use BED files
+    cat("Processing BED files and PAF files with centromere annotations...\n")
 
-chrom_lengths_col <- bed_offsets_col %>%
-    group_by(chrom) %>%
-    summarise(chrom_length = max(offset + length)) %>%
-    ungroup()
+    # Process BEDs
+    bed_offsets_col <- process_bed(col_bed_file, parent1_name)
+    bed_offsets_ler <- process_bed(ler_bed_file, parent2_name)
 
-chrom_lengths_ler <- bed_offsets_ler %>%
-    group_by(chrom) %>%
-    summarise(chrom_length = max(offset + length)) %>%
-    ungroup()
+    chrom_lengths_col <- bed_offsets_col %>%
+        group_by(chrom) %>%
+        summarise(chrom_length = max(offset + length)) %>%
+        ungroup()
 
-# Process PAFs
-paf_merged_col <- process_paf(col_paf_file, bed_offsets_col)
-paf_merged_ler <- process_paf(ler_paf_file, bed_offsets_ler)
+    chrom_lengths_ler <- bed_offsets_ler %>%
+        group_by(chrom) %>%
+        summarise(chrom_length = max(offset + length)) %>%
+        ungroup()
+
+    # Process PAFs with BED offsets
+    paf_merged_col <- process_paf(col_paf_file, bed_offsets_col)
+    paf_merged_ler <- process_paf(ler_paf_file, bed_offsets_ler)
+
+    # Centromere coordinates for shading
+    cen_coords_col <- bed_offsets_col %>%
+        filter(order == 2) %>%
+        mutate(cen_start = offset + 1,
+               cen_end = offset + length,
+               reference = parent1_name) %>%
+        dplyr::select(chrom, cen_start, cen_end, reference)
+
+    cen_coords_ler <- bed_offsets_ler %>%
+        filter(order == 2) %>%
+        mutate(cen_start = offset + 1,
+               cen_end = offset + length,
+               reference = parent2_name) %>%
+        dplyr::select(chrom, cen_start, cen_end, reference)
+
+} else {
+    ## CENTROMERE-UNAWARE MODE: No BED files, use PAF directly
+    cat("Processing PAF files in chromosome-level mode (no centromere annotations)...\n")
+
+    # Process PAFs directly (simple mode)
+    paf_merged_col <- process_paf_simple(col_paf_file)
+    paf_merged_ler <- process_paf_simple(ler_paf_file)
+
+    # Get chromosome lengths from PAF
+    chrom_lengths_col <- get_chrom_lengths_from_paf(paf_merged_col)
+    chrom_lengths_ler <- get_chrom_lengths_from_paf(paf_merged_ler)
+
+    # No centromere coordinates to shade
+    cen_coords_col <- NULL
+    cen_coords_ler <- NULL
+}
 
 # Compute coverage
 coverage_col <- calculate_coverage(paf_merged_col, chrom_lengths_col)
 coverage_ler <- calculate_coverage(paf_merged_ler, chrom_lengths_ler)
 
-coverage_col$reference <- "Col"
-coverage_ler$reference <- "Ler"
+coverage_col$reference <- parent1_name
+coverage_ler$reference <- parent2_name
 
 # Bin coverage for plotting
 binned_col <- coverage_col %>%
@@ -207,49 +311,38 @@ binned_ler <- coverage_ler %>%
         .groups = "drop"
     )
 
-# Centromere coordinates
-cen_coords_col <- bed_offsets_col %>%
-    filter(order == 2) %>%
-    mutate(cen_start = offset + 1,
-           cen_end = offset + length,
-           reference = "Col") %>%
-    dplyr::select(chrom, cen_start, cen_end, reference)
-
-cen_coords_ler <- bed_offsets_ler %>%
-    filter(order == 2) %>%
-    mutate(cen_start = offset + 1,
-           cen_end = offset + length,
-           reference = "Ler") %>%
-    dplyr::select(chrom, cen_start, cen_end, reference)
-
-# Plot Col
+# Plot Parent 1
 p_col <- ggplot(binned_col, aes(x = position, y = coverage)) +
-    geom_rect(data = cen_coords_col,
-              aes(xmin = cen_start, xmax = cen_end, ymin = -Inf, ymax = Inf),
-              fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+    {if (centromere_aware && !is.null(cen_coords_col))
+        geom_rect(data = cen_coords_col,
+                  aes(xmin = cen_start, xmax = cen_end, ymin = -Inf, ymax = Inf),
+                  fill = "grey", alpha = 0.3, inherit.aes = FALSE)
+    } +
     geom_line() +
     facet_wrap(~ chrom, scales = "free_x") +
-    labs(title = paste("Crossover Coverage Plot - Col Reference"),
+    labs(title = paste("Crossover Coverage Plot -", parent1_name, "Reference"),
          subtitle = paste("Sample:", sample_name),
          x = "Chromosome Position", y = "Coverage") +
     theme_bw()
 
-ggsave(paste0(sample_name, "_crossover_plot_Col", ".svg"),
+ggsave(paste0(sample_name, "_crossover_plot_", parent1_name, ".svg"),
        plot = p_col, width = 12, height = 8, dpi = 300)
 
-# Plot Ler
+# Plot Parent 2
 p_ler <- ggplot(binned_ler, aes(x = position, y = coverage)) +
-    geom_rect(data = cen_coords_ler,
-              aes(xmin = cen_start, xmax = cen_end, ymin = -Inf, ymax = Inf),
-              fill = "grey", alpha = 0.3, inherit.aes = FALSE) +
+    {if (centromere_aware && !is.null(cen_coords_ler))
+        geom_rect(data = cen_coords_ler,
+                  aes(xmin = cen_start, xmax = cen_end, ymin = -Inf, ymax = Inf),
+                  fill = "grey", alpha = 0.3, inherit.aes = FALSE)
+    } +
     geom_line() +
     facet_wrap(~ chrom, scales = "free_x") +
-    labs(title = paste("Crossover Coverage Plot - Ler Reference"),
+    labs(title = paste("Crossover Coverage Plot -", parent2_name, "Reference"),
          subtitle = paste("Sample:", sample_name),
          x = "Chromosome Position", y = "Coverage") +
     theme_bw()
 
-ggsave(paste0(sample_name, "_crossover_plot_Ler", ".svg"),
+ggsave(paste0(sample_name, "_crossover_plot_", parent2_name, ".svg"),
        plot = p_ler, width = 12, height = 8, dpi = 300)
 
 # Write output tables

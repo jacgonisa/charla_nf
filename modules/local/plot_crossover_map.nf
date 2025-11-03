@@ -1,14 +1,14 @@
 process PLOT_CROSSOVER_MAP {
     tag "crossover_plot"
     publishDir "${params.outdir}/crossover_plots", mode: 'symlink'
-    
+
     input:
-    path col_bed                    // Col-0 BED file
-    path ler_bed                    // Ler-0 BED file  
-    path col_arms_paf               // ARMS PAF file against Col reference
-    path col_cen_paf                // CEN PAF file against Col reference
-    path ler_arms_paf               // ARMS PAF file against Ler reference
-    path ler_cen_paf                // CEN PAF file against Ler reference
+    val parent1_bed                 // Parent 1 BED file (or "NA" for centromere-unaware mode)
+    val parent2_bed                 // Parent 2 BED file (or "NA" for centromere-unaware mode)
+    path parent1_paf                // Parent 1 PAF file(s) - ARMS+CEN or CHR
+    path parent1_cen_paf            // Parent 1 CEN PAF file (or empty for centromere-unaware)
+    path parent2_paf                // Parent 2 PAF file(s) - ARMS+CEN or CHR
+    path parent2_cen_paf            // Parent 2 CEN PAF file (or empty for centromere-unaware)
     val threshold                   // Threshold value for naming
     val sample_name                 // Sample name for output files
     
@@ -31,31 +31,31 @@ def max_cluster_count = params.max_cluster_count ?: 3
 """
 
 # First, concatenate PAF files (handle missing CEN files gracefully)
-    echo "=== Concatenating PAF files ===" | tee filtering_stats.txt
+echo "=== Concatenating PAF files ===" | tee filtering_stats.txt
 
-    # Concatenate Col PAF files
-    if [[ -s "${col_cen_paf}" ]]; then
-        cat ${col_arms_paf} ${col_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
-    else
-        echo "Warning: CEN PAF file for Col is empty or missing, using only ARMS data" | tee -a filtering_stats.txt
-        cat ${col_arms_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstCol.paf
-    fi
+# Concatenate Parent 1 PAF files
+if [[ -s "${parent1_cen_paf}" ]]; then
+    cat ${parent1_paf} ${parent1_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_against${params.parent1_name}.paf
+else
+    echo "Warning: CEN PAF file for ${params.parent1_name} is empty or missing, using only CHR/ARMS data" | tee -a filtering_stats.txt
+    cat ${parent1_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_against${params.parent1_name}.paf
+fi
 
-    # Concatenate Ler PAF files
-    if [[ -s "${ler_cen_paf}" ]]; then
-        cat ${ler_arms_paf} ${ler_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
-    else
-        echo "Warning: CEN PAF file for Ler is empty or missing, using only ARMS data" | tee -a filtering_stats.txt
-        cat ${ler_arms_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_againstLer.paf
-    fi
+# Concatenate Parent 2 PAF files
+if [[ -s "${parent2_cen_paf}" ]]; then
+    cat ${parent2_paf} ${parent2_cen_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_against${params.parent2_name}.paf
+else
+    echo "Warning: CEN PAF file for ${params.parent2_name} is empty or missing, using only CHR/ARMS data" | tee -a filtering_stats.txt
+    cat ${parent2_paf} | grep -v "^#" > summary_mm_sr_ARMSandCEN_against${params.parent2_name}.paf
+fi
     
     # Count original alignments
-    col_original=\$(wc -l < summary_mm_sr_ARMSandCEN_againstCol.paf)
-    ler_original=\$(wc -l < summary_mm_sr_ARMSandCEN_againstLer.paf)
-    
+    parent1_original=\$(wc -l < summary_mm_sr_ARMSandCEN_against${params.parent1_name}.paf)
+    parent2_original=\$(wc -l < summary_mm_sr_ARMSandCEN_against${params.parent2_name}.paf)
+
     echo "Original PAF alignments:" | tee -a filtering_stats.txt
-    echo "  Col-0: \${col_original}" | tee -a filtering_stats.txt
-    echo "  Ler-0: \${ler_original}" | tee -a filtering_stats.txt
+    echo "  ${params.parent1_name}: \${parent1_original}" | tee -a filtering_stats.txt
+    echo "  ${params.parent2_name}: \${parent2_original}" | tee -a filtering_stats.txt
     echo "" | tee -a filtering_stats.txt
     
     echo "=== Filtering parameters ===" | tee -a filtering_stats.txt
@@ -65,19 +65,19 @@ def max_cluster_count = params.max_cluster_count ?: 3
     
     
    
-    echo "=== Filtering Col-0 PAF ===" | tee -a filtering_stats.txt
+    echo "=== Filtering ${params.parent1_name} PAF ===" | tee -a filtering_stats.txt
     awk -f ${projectDir}/scripts/13-filter_high_coverage_events.awk \
         -v tol=${cluster_tolerance} \
         -v max=${max_cluster_count} \
-        -v prefix="summary_mm_sr_ARMSandCEN_againstCol" \
-        summary_mm_sr_ARMSandCEN_againstCol.paf 2>> filtering_stats.txt
+        -v prefix="summary_mm_sr_ARMSandCEN_against${params.parent1_name}" \
+        summary_mm_sr_ARMSandCEN_against${params.parent1_name}.paf 2>> filtering_stats.txt
 
-echo "=== Filtering Ler-0 PAF ===" | tee -a filtering_stats.txt
+echo "=== Filtering ${params.parent2_name} PAF ===" | tee -a filtering_stats.txt
     awk -f ${projectDir}/scripts/13-filter_high_coverage_events.awk \
         -v tol=${cluster_tolerance} \
         -v max=${max_cluster_count} \
-        -v prefix="summary_mm_sr_ARMSandCEN_againstLer" \
-        summary_mm_sr_ARMSandCEN_againstLer.paf 2>> filtering_stats.txt
+        -v prefix="summary_mm_sr_ARMSandCEN_against${params.parent2_name}" \
+        summary_mm_sr_ARMSandCEN_against${params.parent2_name}.paf 2>> filtering_stats.txt
 
     echo "" | tee -a filtering_stats.txt
     echo "=== Filtering complete ===" | tee -a filtering_stats.txt
@@ -88,11 +88,13 @@ echo "PAF files concatenated successfully"
 echo "Starting R script..."
 
 Rscript ${projectDir}/scripts/13-plot_crossover_map.R \
-    --col_bed ${col_bed} \
-    --ler_bed ${ler_bed} \
-    --col_paf summary_mm_sr_ARMSandCEN_againstCol.filtered.paf \
-    --ler_paf summary_mm_sr_ARMSandCEN_againstLer.filtered.paf \
-    --sample_name ${sample_name}
+    --col_bed ${parent1_bed} \
+    --ler_bed ${parent2_bed} \
+    --col_paf summary_mm_sr_ARMSandCEN_against${params.parent1_name}.filtered.paf \
+    --ler_paf summary_mm_sr_ARMSandCEN_against${params.parent2_name}.filtered.paf \
+    --sample_name ${sample_name} \
+    --parent1_name ${params.parent1_name} \
+    --parent2_name ${params.parent2_name}
 
 
 
