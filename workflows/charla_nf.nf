@@ -380,73 +380,62 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
 
     /*
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        CROSSOVER PLOTTING ANALYSIS
+        CROSSOVER PLOTTING ANALYSIS (OPTIONAL - CENTROMERE-AWARE MODE)
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     */
 
-    // Validate input BED files directory
-    if (!params.parent1_bed) {
-        error "ERROR: The --parent1_bed parameter must be provided for crossover plotting."
+    // Check if running in centromere-aware mode (BED files provided)
+    def centromere_aware_mode = params.parent1_bed && params.parent2_bed
+
+    if (centromere_aware_mode) {
+        log.info "[CHARLA_NF] Running in CENTROMERE-AWARE mode - crossover plotting enabled"
+
+        // Create channels for BED files (now using generic parent names)
+        ch_parent1_bed = Channel.fromPath(params.parent1_bed)
+            .ifEmpty { error "❌ ${params.parent1_name} BED file not found: ${params.parent1_bed}" }
+
+        ch_parent2_bed = Channel.fromPath(params.parent2_bed)
+            .ifEmpty { error "❌ ${params.parent2_name} BED file not found: ${params.parent2_bed}" }
+
+        // Filter PAF files for different types and references (now using dynamic parent names)
+        parent1_arms_paf_files = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("ARMS_against${params.parent1_name}.paf") }
+
+        parent1_cen_paf_files = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("CEN_against${params.parent1_name}.paf") }
+
+        parent2_arms_paf_files = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("ARMS_against${params.parent2_name}.paf") }
+
+        parent2_cen_paf_files = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("CEN_against${params.parent2_name}.paf") }
+
+        // Debug what we found
+        parent1_arms_paf_files.view { "Found ${params.parent1_name} ARMS PAF: $it" }
+        parent1_cen_paf_files.view { "Found ${params.parent1_name} CEN PAF: $it" }
+        parent2_arms_paf_files.view { "Found ${params.parent2_name} ARMS PAF: $it" }
+        parent2_cen_paf_files.view { "Found ${params.parent2_name} CEN PAF: $it" }
+
+        // Run crossover plotting with the filtered channels (using generic parent references)
+        crossover_plot_output = PLOT_CROSSOVER_MAP(
+            ch_parent1_bed.first(),
+            ch_parent2_bed.first(),
+            parent1_arms_paf_files.first(),
+            parent1_cen_paf_files.first(),
+            parent2_arms_paf_files.first(),
+            parent2_cen_paf_files.first(),
+            params.threshold ?: 50,
+            params.sample_id
+        )
+    } else {
+        log.info "[CHARLA_NF] Running in CENTROMERE-UNAWARE mode - crossover plotting SKIPPED"
+        log.info "[CHARLA_NF] To enable crossover plotting, provide --parent1_bed and --parent2_bed parameters"
+        crossover_plot_output = null
     }
-
-    if (!params.parent2_bed) {
-        error "ERROR: The --parent2_bed parameter must be provided for crossover plotting."
-    }
-
-    // Create channels for BED files (now using generic parent names)
-    ch_parent1_bed = Channel.fromPath(params.parent1_bed)
-        .ifEmpty { error "❌ ${params.parent1_name} BED file not found: ${params.parent1_bed}" }
-
-    ch_parent2_bed = Channel.fromPath(params.parent2_bed)
-        .ifEmpty { error "❌ ${params.parent2_name} BED file not found: ${params.parent2_bed}" }
-
-    // Filter PAF files for different types and references (now using dynamic parent names)
-    parent1_arms_paf_files = mapping_analysis_output.paf_files
-        .flatten()
-        .filter { it.name.contains("ARMS_against${params.parent1_name}.paf") }
-
-    parent1_cen_paf_files = mapping_analysis_output.paf_files
-        .flatten()
-        .filter { it.name.contains("CEN_against${params.parent1_name}.paf") }
-
-    parent2_arms_paf_files = mapping_analysis_output.paf_files
-        .flatten()
-        .filter { it.name.contains("ARMS_against${params.parent2_name}.paf") }
-
-    parent2_cen_paf_files = mapping_analysis_output.paf_files
-        .flatten()
-        .filter { it.name.contains("CEN_against${params.parent2_name}.paf") }
-
-    // Debug what we found
-    parent1_arms_paf_files.view { "Found ${params.parent1_name} ARMS PAF: $it" }
-    parent1_cen_paf_files.view { "Found ${params.parent1_name} CEN PAF: $it" }
-    parent2_arms_paf_files.view { "Found ${params.parent2_name} ARMS PAF: $it" }
-    parent2_cen_paf_files.view { "Found ${params.parent2_name} CEN PAF: $it" }
-    
-    // Now, run crossover plotting with the filtered channels.
-   // crossover_plot_output = PLOT_CROSSOVER_MAP(
-   //     col_arms_paf_files.first(),
-   //     col_cen_paf_files.first(),
-   //     ler_arms_paf_files.first(),
-   //     ler_cen_paf_files.first(),
-   //     ch_col_bed.first(),
-   //     ch_ler_bed.first(),
-   //     params.threshold ?: 50,
-   //     params.sample_id
-   // )
-
-
-    // Now, run crossover plotting with the filtered channels (using generic parent references)
-    crossover_plot_output = PLOT_CROSSOVER_MAP(
-    ch_parent1_bed.first(),
-    ch_parent2_bed.first(),
-    parent1_arms_paf_files.first(),
-    parent1_cen_paf_files.first(),
-    parent2_arms_paf_files.first(),
-    parent2_cen_paf_files.first(),
-    params.threshold ?: 50,
-    params.sample_id
-)
 
 
 /*
@@ -504,9 +493,9 @@ non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
     paf_files = mapping_analysis_output.paf_files
     cowidth_files = mapping_analysis_output.cowidth_files
 
-    // Plotting output
-    crossover_plots = crossover_plot_output.crossover_plots
-    coverage_data = crossover_plot_output.coverage_data
+    // Plotting output (only if centromere-aware mode)
+    crossover_plots = centromere_aware_mode ? crossover_plot_output.crossover_plots : Channel.empty()
+    coverage_data = centromere_aware_mode ? crossover_plot_output.coverage_data : Channel.empty()
  //   plot_log_files = crossover_plot_output.log_files
 
 // Non-hybrid analysis outputs
