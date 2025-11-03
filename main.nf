@@ -69,10 +69,18 @@ log.info "DEBUG: Configured output dir: ${params.outdir}"
 
 
 // --- ADD: Create combinations of ACC, CAT, CHR (now using dynamic parent names) ---
+// Detect mode: centromere-aware (CEN/ARMS) vs centromere-unaware (CHR only)
+def centromere_aware = params.parent1_bed && params.parent2_bed
+def region_types = centromere_aware ? ['CEN', 'ARMS'] : ['CHR']
+
+log.info "Using parent accessions: ${params.parent1_name} × ${params.parent2_name}"
+log.info "Number of chromosomes: ${params.num_chromosomes}"
+log.info "Mode: ${centromere_aware ? 'CENTROMERE-AWARE (CEN/ARMS)' : 'CENTROMERE-UNAWARE (CHR only)'}"
+
 ch_kmc_combinations = Channel
     .from([params.parent1_name, params.parent2_name])
     .flatMap { acc ->
-        ['CEN', 'ARMS'].collectMany { cat ->
+        region_types.collectMany { cat ->
             (1..params.num_chromosomes).collect { chr ->
                 [acc, cat, chr]
             }
@@ -80,8 +88,6 @@ ch_kmc_combinations = Channel
     }
 // Add debug to see what combinations are created
 ch_kmc_combinations.view { "KMC combinations: $it" }
-log.info "Using parent accessions: ${params.parent1_name} × ${params.parent2_name}"
-log.info "Number of chromosomes: ${params.num_chromosomes}"
 // --- END ADD ---
 
 
