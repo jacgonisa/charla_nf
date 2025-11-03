@@ -2,23 +2,34 @@
 """
 Quality-based base masking for FASTQ files.
 Replaces bases with quality scores below threshold with 'N'.
+Supports both plain and gzipped FASTQ files.
 """
 
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 import sys
+import gzip
 
 def replace_low_quality_bases(input_fastq, output_fastq, min_quality):
     """
     Reads a fastq file and replaces bases with a quality score lower than
-    min_quality with 'N'.
-    
+    min_quality with 'N'. Automatically detects gzipped files.
+
     Args:
-        input_fastq (str): The path to the input fastq file.
+        input_fastq (str): The path to the input fastq file (.fastq or .fastq.gz).
         output_fastq (str): The path to the output fastq file.
         min_quality (int): The minimum Phred quality score. Bases below this
                            score will be replaced by 'N'.
     """
-    with open(input_fastq, "r") as in_handle, open(output_fastq, "w") as out_handle:
+    # Detect if input is gzipped
+    is_gzipped = input_fastq.endswith('.gz')
+
+    # Open input file with appropriate handler
+    if is_gzipped:
+        in_handle = gzip.open(input_fastq, "rt")  # 'rt' = read text mode
+    else:
+        in_handle = open(input_fastq, "r")
+
+    with in_handle, open(output_fastq, "w") as out_handle:
         processed_reads = 0
         masked_bases = 0
         total_bases = 0
@@ -61,8 +72,9 @@ def replace_low_quality_bases(input_fastq, output_fastq, min_quality):
 
 def main():
     if len(sys.argv) != 4:
-        print("Usage: python3 quality_mask_fastq.py <input.fastq> <output.fastq> <min_quality>")
-        print("Example: python3 quality_mask_fastq.py input.fq output_masked.fq 20")
+        print("Usage: python3 quality_mask_fastq.py <input.fastq[.gz]> <output.fastq> <min_quality>")
+        print("Example: python3 quality_mask_fastq.py input.fq.gz output_masked.fq 20")
+        print("Note: Automatically detects and handles gzipped input files")
         sys.exit(1)
     
     input_file = sys.argv[1]
