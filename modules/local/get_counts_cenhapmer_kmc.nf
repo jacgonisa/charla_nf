@@ -1,6 +1,6 @@
 process get_counts_cenhapmer_kmc {
 
-    tag "${acc}_${cat}_Chr${chr}"
+    tag "${acc}_${cat}_${params.chr_prefix}${chr}"
 
     publishDir "${params.outdir}/cenhapmers", mode: 'copy'
 
@@ -15,7 +15,7 @@ cpus params.cenhapmer_cpus ?: 1
     tuple val(acc), val(cat), val(chr), path(fasta_file), path(cenhapmer_db_dir)
 
     output:
-    path "${acc}_${cat}_Chr${chr}_k${params.kmer_size}.txt"
+    path "${acc}_${cat}_${params.chr_prefix}${chr}_k${params.kmer_size}.txt"
 
     script:
     """
@@ -23,13 +23,14 @@ cpus params.cenhapmer_cpus ?: 1
     echo "DEBUG: fasta_file=${fasta_file}" >&2
     echo "DEBUG: cenhapmer_db_dir=${cenhapmer_db_dir}" >&2
     echo "DEBUG: params.kmer_size=${params.kmer_size}" >&2
+    echo "DEBUG: params.chr_prefix=${params.chr_prefix}" >&2
 
 
 
-    DB_PREFIX="${cenhapmer_db_dir}/unique_${acc}-0_${cat}_Chr${chr}_k${params.kmer_size}"
+    DB_PREFIX="${cenhapmer_db_dir}/unique_${acc}_${cat}_${params.chr_prefix}${chr}_k${params.kmer_size}"
 
     if [[ -f "\${DB_PREFIX}.kmc_pre" && -f "\${DB_PREFIX}.kmc_suf" ]]; then
-        get_counts_threads \${DB_PREFIX} ${fasta_file} 10 > ${acc}_${cat}_Chr${chr}_k${params.kmer_size}.txt
+        get_counts_threads \${DB_PREFIX} ${fasta_file} 10 > ${acc}_${cat}_${params.chr_prefix}${chr}_k${params.kmer_size}.txt
     else
         echo "Missing DB: \${DB_PREFIX}" >&2
         exit 1
