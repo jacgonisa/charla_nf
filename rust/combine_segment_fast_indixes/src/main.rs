@@ -18,7 +18,7 @@ use csv::ReaderBuilder;
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
 struct Args {
-    /// Root directory containing .cambridge files laid out as <ecotype>/<CEN|ARMS>/<filename>
+    /// Root directory containing hapmer count files (e.g., <parent>_<region>_<chr>_k<kmer>.txt)
     #[clap(long)]
     input_dir: PathBuf,
 
@@ -130,7 +130,7 @@ fn main() -> Result<()> {
         serde_json::to_writer_pretty(File::create(&abbrev_json)?, &abbrev_map)?;
         vlog!("    ✅ Wrote {} ({} files) in {:?}", abbrev_json.display(), abbrev_map.len(), start.elapsed());
 
-        // 4) Build Cambridge offset index
+        // 4) Build hapmer file offset index
         cambridge_filenames = kmer_index.headers.iter().skip(1).cloned().collect();
 
         // NEW (Corrected)
@@ -143,7 +143,7 @@ fn main() -> Result<()> {
 
 
         let start = Instant::now();
-        vlog!("    Building Cambridge offset index for relevant reads…");
+        vlog!("    Building hapmer file offset index for relevant reads…");
         cam_index = load_or_build_cam_index(&cambridge_files, &kmer_reads_set, &cam_json, args.verbose)?;
         vlog!("    ✅ Wrote {} (offsets for {} files) in {:?}",
             cam_json.display(), cam_index.len(), start.elapsed());
@@ -169,10 +169,10 @@ fn main() -> Result<()> {
         abbrev_map = serde_json::from_reader(File::open(&abbrev_json)?)?;
         vlog!("    ✅ Loaded abbreviation map ({} files) in {:?}", abbrev_map.len(), start.elapsed());
 
-        vlog!("📥 Loading Cambridge offset index from {}…", cam_json.display());
+        vlog!("📥 Loading hapmer file offset index from {}…", cam_json.display());
         let start = Instant::now();
         cam_index = serde_json::from_reader(File::open(&cam_json)?)?;
-        vlog!("    ✅ Loaded Cambridge offset index (offsets for {} files) in {:?}", cam_index.len(), start.elapsed());
+        vlog!("    ✅ Loaded hapmer file offset index (offsets for {} files) in {:?}", cam_index.len(), start.elapsed());
 
         // Need filenames/paths even if loading indexes
         cambridge_filenames = kmer_index.headers.iter().skip(1).cloned().collect();
@@ -249,7 +249,7 @@ fn main() -> Result<()> {
                     vec!["NA".into(); cambridge_files.len()] // Fallback length
                 };
 
-                // For each Cambridge column
+                // For each hapmer file column
                 for (col_i, &count) in row.iter().enumerate() {
                     if count < args.min_count {
                         continue;
@@ -311,7 +311,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Build or load the **offset** index for all .cambridge files.
+/// Build or load the **offset** index for all hapmer files.
 /// Only indexes reads specified in the candidates HashSet.
 /// Writes/reads a JSON: HashMap< filename, HashMap< read, byte_offset > >.
 /// Includes a progress bar for file processing.
@@ -325,7 +325,7 @@ fn load_or_build_cam_index(
 
     if idx_file.exists() {
         if verbose {
-            eprintln!("⏳ Loading Cambridge index from {} …", idx_file.display());
+            eprintln!("⏳ Loading hapmer file index from {} …", idx_file.display());
         }
         let start = Instant::now();
         let f = File::open(idx_file)?;
@@ -337,14 +337,14 @@ fn load_or_build_cam_index(
     }
 
     if verbose {
-        eprintln!("🔨 Building Cambridge offset index …");
+        eprintln!("🔨 Building hapmer file offset index …");
     }
 
     let start = Instant::now();
     let pb = ProgressBar::new(files.len() as u64);
     pb.set_style(
         ProgressStyle::default_bar()
-            .template("Indexing Cambridge files [{bar:40}] {pos}/{len} ({eta})")
+            .template("Indexing hapmer files [{bar:40}] {pos}/{len} ({eta})")
             .unwrap()
             .progress_chars("=>-"),
     );
@@ -451,7 +451,7 @@ fn load_or_build_cam_index(
     let f = File::create(idx_file)?;
     serde_json::to_writer_pretty(f, &map)?;
     if verbose {
-        eprintln!("    ✅ Saved Cambridge index to {} in {:?}", idx_file.display(), start.elapsed());
+        eprintln!("    ✅ Saved hapmer file index to {} in {:?}", idx_file.display(), start.elapsed());
     }
     Ok(map)
 }
@@ -601,34 +601,40 @@ fn load_kmer_presence(path: &Path) -> Result<(Vec<String>, Vec<String>, Vec<Vec<
     Ok((reads, headers, matrix))
 }
 
-/// Makes a shorter abbreviation from a Cambridge filename.
-/// Example: NB-123_CEN_100kb_window_50kb_step.cambridge -> NB123C
-/// Makes a three-character abbreviation from a Cambridge filename:
-///   <ecotype>_<region>_Chr<chrom>_…  →  <E><R><chrom>
-/// where E = first letter of ecotype (uppercase),
-///       R = “C” for CEN or “A” for ARMS,
-/// and  chrom = the number after “Chr”.
+/// Makes a shorter abbreviation from a hapmer filename.
+/// Examples:
+///   - Col_CEN_Chr1_k21.txt -> CC1
+///   - C57BL6J_CHR_chr1_k21.txt -> CH1
+/// Creates a three-character abbreviation from hapmer filename:
+///   <parent>_<region>_<chr>_…  →  <P><R><chrom>
+/// where P = first letter of parent name (uppercase),
+///       R = "C" for CEN, "A" for ARMS, or "H" for CHR (centromere-unaware mode),
+/// and  chrom = the number after "Chr" or "chr".
 fn make_abbrev(filename: &str) -> Option<String> {
     let parts: Vec<&str> = filename.split('_').collect();
-    let ecotype = parts.get(0)?;           // e.g. "Col" or "Ler"
-    let region  = parts.get(1)?;           // e.g. "ARMS" or "CEN"
-    let chr_part = parts.get(2)?;          // e.g. "Chr1", "Chr3", etc.
+    let ecotype = parts.get(0)?;           // e.g. "Col", "Ler", "C57BL6J", "DBA2J"
+    let region  = parts.get(1)?;           // e.g. "ARMS", "CEN", or "CHR"
+    let chr_part = parts.get(2)?;          // e.g. "Chr1", "chr1", etc.
 
     // 1) First letter of the ecotype, uppercased
     let e = ecotype.chars().next()?.to_ascii_uppercase();
 
-    // 2) Region: C for CEN, A for ARMS
+    // 2) Region: C for CEN, A for ARMS, H for CHR
     let r = if region.contains("CEN") {
         'C'
     } else if region.contains("ARMS") {
         'A'
+    } else if region.contains("CHR") {
+        'H'
     } else {
         // fallback or skip if unexpected
         return None;
     };
 
-    // 3) Strip the "Chr" prefix to get the chromosome number
-    let chrom = chr_part.trim_start_matches("Chr");
+    // 3) Strip the "Chr" or "chr" prefix (case-insensitive) to get the chromosome number
+    let chrom = chr_part
+        .trim_start_matches("Chr")
+        .trim_start_matches("chr");
 
     Some(format!("{}{}{}", e, r, chrom))
 }
@@ -637,13 +643,13 @@ fn make_abbrev(filename: &str) -> Option<String> {
 
 
 
-/// Reads a single Cambridge profile at the given byte offset.
+/// Reads a single hapmer profile at the given byte offset.
 /// Expects the line at the offset to be the comma-separated profile.
 /// Returns a Vec<String> of the profile values.
 /// Handles potential errors during file access or reading.
 fn read_cam_profile_at(file_path: &Path, offset: u64, read_id: &str, verbose: bool) -> Result<Vec<String>> {
     let file = File::open(file_path)
-        .with_context(|| format!("Error opening Cambridge file: {}", file_path.display()))?;
+        .with_context(|| format!("Error opening hapmer file: {}", file_path.display()))?;
     let mut reader = BufReader::new(file);
     reader.seek(SeekFrom::Start(offset))
         .with_context(|| format!("Error seeking to offset {} in {}", offset, file_path.display()))?;

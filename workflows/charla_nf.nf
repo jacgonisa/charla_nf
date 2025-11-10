@@ -139,6 +139,9 @@ processed_fasta_files = processed_data_cenhapmer_ch // Or processed_data_cenhapm
 // Debug
 processed_fasta_files.view { "Processed input for final processing: $it" }
 
+// Detect centromere-aware vs centromere-unaware mode
+def centromere_aware_mode = params.parent1_bed && params.parent2_bed
+log.info "[CHARLA_NF] Mode: ${centromere_aware_mode ? 'CENTROMERE-AWARE (CEN/ARMS)' : 'CENTROMERE-UNAWARE (CHR only)'}"
 
 // ====================================================================
 // READMER BRANCH (always non-masked fasta)
@@ -252,7 +255,11 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     ch_cenhapmer_dir_path = all_cenhapmer_done
         .map { files ->
             def outdir = params.outdir.replaceAll('/$', '')  // Remove trailing slash
-            "${workflow.launchDir}/${outdir}/cenhapmers"
+            // Check if outdir is already an absolute path
+            def cenhapmer_dir = outdir.startsWith('/') ?
+                "${outdir}/cenhapmers" :
+                "${workflow.launchDir}/${outdir}/cenhapmers"
+            cenhapmer_dir
         }
 
     ch_script_file = Channel.fromPath("${baseDir}/rust/kmer_processor/target/release/kmer_processor")
@@ -277,7 +284,11 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     }
 
     def outdir_normalized = params.outdir.replaceAll('/$', '')  // Remove trailing slash
-    ch_input_dir_for_hybrid = Channel.value("${workflow.launchDir}/${outdir_normalized}/cenhapmers")
+    // Check if outdir is already an absolute path
+    def input_dir = outdir_normalized.startsWith('/') ?
+        "${outdir_normalized}/cenhapmers" :
+        "${workflow.launchDir}/${outdir_normalized}/cenhapmers"
+    ch_input_dir_for_hybrid = Channel.value(input_dir)
     ch_kmer_tsv = process_cenhapmer_counts_output.kmer_matrix
     ch_qc_file = get_counts_kmc.out
     ch_rust_binary = Channel.fromPath("${baseDir}/rust/combine_segment_fast_indixes/target/release/hybrid_profile_toolkit")
@@ -327,11 +338,12 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     
     // Segment reads based on threshold and generate BED files
     segment_reads_output = SEGMENT_READS(
-        curate_hybrid_profiles_output.final_table.collect(),            
+        curate_hybrid_profiles_output.final_table.collect(),
         combine_hybrid_profiles_output.hybrid_profiles_file.collect(),
         processed_data_readmer_ch.map { meta, file -> file }, // Extract file from [meta, file] and Use readmer (non-masked) data
         params.threshold ?: 50,
-        params.kmer_size                          
+        params.kmer_size,
+        centromere_aware_mode  // Pass mode to handle CHR vs CEN/ARMS splitting
     )
 
 
@@ -351,29 +363,51 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     // Debug: Check what SEGMENT_READS produced
     segment_reads_output.segmented_fasta.view { "Available segmented_fasta: $it" }
     segment_reads_output.bed_files.view { "Available bed_files: $it" }
-    
-    arms_fasta_files = segment_reads_output.segmented_fasta
-        .flatten()
-        .filter { it.name.contains('ARMS.segments.fa') || it.name.contains('ARMS') }
-    
-    cen_fasta_files = segment_reads_output.segmented_fasta
-        .flatten()
-        .filter { it.name.contains('CEN.segments.fa') || it.name.contains('CEN') }
-    
-    arms_bed_files = segment_reads_output.bed_files
-        .flatten()
-        .filter { it.name.contains('ARMS.bed') || it.name.contains('ARMS') }
-    
-    cen_bed_files = segment_reads_output.bed_files
-        .flatten()
-        .filter { it.name.contains('CEN.bed') || it.name.contains('CEN') }
+
+    // Handle file filtering based on mode
+    if (centromere_aware_mode) {
+        log.info "[CHARLA_NF] Filtering for ARMS/CEN files (centromere-aware mode)"
+        arms_fasta_files = segment_reads_output.segmented_fasta
+            .flatten()
+            .filter { it.name.contains('ARMS.segments.fa') }
+
+        cen_fasta_files = segment_reads_output.segmented_fasta
+            .flatten()
+            .filter { it.name.contains('CEN.segments.fa') }
+
+        arms_bed_files = segment_reads_output.bed_files
+            .flatten()
+            .filter { it.name.contains('ARMS.bed') }
+
+        cen_bed_files = segment_reads_output.bed_files
+            .flatten()
+            .filter { it.name.contains('CEN.bed') }
+    } else {
+        log.info "[CHARLA_NF] Filtering for CHR files (centromere-unaware mode)"
+        // In CHR mode, use CHR files for "arms" input and create empty channel for "cen"
+        arms_fasta_files = segment_reads_output.segmented_fasta
+            .flatten()
+            .filter { it.name.contains('CHR.segments.fa') }
+
+        cen_fasta_files = Channel.empty()
+
+        arms_bed_files = segment_reads_output.bed_files
+            .flatten()
+            .filter { it.name.contains('CHR.bed') }
+
+        cen_bed_files = Channel.empty()
+    }
 
     // Run MAPPING_ANALYSIS with the first available file of each type
+    // Create unique placeholders for empty CEN files in centromere-unaware mode
+    def empty_cen_fasta = file("${workDir}/NO_CEN_FASTA")
+    def empty_cen_bed = file("${workDir}/NO_CEN_BED")
+
     mapping_analysis_output = MAPPING_ANALYSIS(
-        arms_fasta_files.first(),   // ARMS segments FASTA
-        cen_fasta_files.first(),    // CEN segments FASTA  
-        arms_bed_files.first(),     // ARMS BED
-        cen_bed_files.first(),      // CEN BED
+        arms_fasta_files.first(),   // ARMS/CHR segments FASTA
+        cen_fasta_files.ifEmpty { empty_cen_fasta }.first(),    // CEN segments FASTA (or placeholder)
+        arms_bed_files.first(),     // ARMS/CHR BED
+        cen_bed_files.ifEmpty { empty_cen_bed }.first(),      // CEN BED (or placeholder)
         ch_reference_genomes,       // Reference genomes
         params.threshold ?: 50      // Threshold
     )
@@ -384,9 +418,7 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     */
 
-    // Check if running in centromere-aware mode (BED files provided)
-    def centromere_aware_mode = params.parent1_bed && params.parent2_bed
-
+    // Check if running in centromere-aware mode (already defined at workflow start)
     if (centromere_aware_mode) {
         log.info "[CHARLA_NF] Running in CENTROMERE-AWARE mode - crossover plotting with centromere annotations"
 
@@ -436,21 +468,29 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
             .flatten()
             .filter { it.name.contains("CHR_against${params.parent2_name}.paf") }
 
+        // Get empty CEN PAF files created by MAPPING_ANALYSIS as placeholders
+        parent1_cen_empty = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("CEN_against${params.parent1_name}.paf") }
+
+        parent2_cen_empty = mapping_analysis_output.paf_files
+            .flatten()
+            .filter { it.name.contains("CEN_against${params.parent2_name}.paf") }
+
         // Debug what we found
         parent1_chr_paf_files.view { "Found ${params.parent1_name} CHR PAF: $it" }
         parent2_chr_paf_files.view { "Found ${params.parent2_name} CHR PAF: $it" }
-
-        // Create empty channels for CEN files (not used in centromere-unaware mode)
-        empty_paf = Channel.fromPath("${projectDir}/README.md").first()  // Dummy file
+        parent1_cen_empty.view { "Found ${params.parent1_name} empty CEN PAF: $it" }
+        parent2_cen_empty.view { "Found ${params.parent2_name} empty CEN PAF: $it" }
 
         // Run crossover plotting without centromere annotations
         crossover_plot_output = PLOT_CROSSOVER_MAP(
             "NA",  // No BED file for parent 1
             "NA",  // No BED file for parent 2
             parent1_chr_paf_files.first(),
-            empty_paf,  // Empty placeholder for parent1 CEN
+            parent1_cen_empty.first(),  // Empty placeholder for parent1 CEN
             parent2_chr_paf_files.first(),
-            empty_paf,  // Empty placeholder for parent2 CEN
+            parent2_cen_empty.first(),  // Empty placeholder for parent2 CEN
             params.threshold ?: 50,
             params.sample_id
         )
@@ -463,12 +503,26 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// Run non-hybrid reads analysis using the kmer matrix from process_cenhapmer_counts
-non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
-    process_cenhapmer_counts_output.kmer_matrix,              // TSV file with kmer counts per read (from process_cenhapmer_counts)
-    processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
-    ch_reference_genomes.first()                               // Reference genomes directory (reuse from mapping analysis)
-)
+// Run non-hybrid reads analysis only in centromere-aware mode (requires CEN/ARMS regions)
+// In centromere-unaware mode (CHR only), skip this analysis as it's hardcoded for CEN/ARMS categories
+if (centromere_aware_mode) {
+    non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
+        process_cenhapmer_counts_output.kmer_matrix,              // TSV file with kmer counts per read (from process_cenhapmer_counts)
+        processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
+        ch_reference_genomes.first()                               // Reference genomes directory (reuse from mapping analysis)
+    )
+} else {
+    // Create empty channels for centromere-unaware mode
+    log.info "⏩ Skipping non-hybrid reads analysis (only available in centromere-aware mode)"
+    non_hybrid_analysis_output = [
+        output_directory: Channel.empty(),
+        read_lists: Channel.empty(),
+        extracted_sequences: Channel.empty(),
+        bam_files: Channel.empty(),
+        bai_files: Channel.empty(),
+        indel_results: Channel.empty()
+    ]
+}
 
 
 
@@ -500,14 +554,17 @@ non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
     nonectopic_candidates = segment_reads_output.nonectopic_candidates
     arms_candidates = segment_reads_output.arms_candidates
     cen_candidates = segment_reads_output.cen_candidates
+    chr_candidates = segment_reads_output.chr_candidates
     arms_fasta = segment_reads_output.arms_fasta
     cen_fasta = segment_reads_output.cen_fasta
+    chr_fasta = segment_reads_output.chr_fasta
     bed_files = segment_reads_output.bed_files
     segmented_fasta = segment_reads_output.segmented_fasta
 
     // Mapping outputs
     arms_mapping = mapping_analysis_output.arms_mapping_results
     cen_mapping = mapping_analysis_output.cen_mapping_results
+    chr_mapping = mapping_analysis_output.chr_mapping_results
     plotting_results = mapping_analysis_output.plotting_results
     paf_files = mapping_analysis_output.paf_files
     cowidth_files = mapping_analysis_output.cowidth_files

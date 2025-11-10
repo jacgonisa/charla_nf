@@ -1,10 +1,11 @@
 from collections import Counter
 import sys
+import re
 
 def parse_crossovers(file_path, output_file):
     crossover_counts = Counter()
     updated_lines = []
-    
+
     with open(file_path, 'r') as f:
         for line in f:
             columns = line.strip().split('\t')
@@ -12,12 +13,19 @@ def parse_crossovers(file_path, output_file):
             if len(columns) < 3:
                 updated_lines.append(line.strip() + '\tNA')
                 continue
-            
+
             # Get the crossover information from the third column
             crossovers = columns[2].split(',')
-            
-            # Extract the unique regions (the last 3 characters of each entry)
-            regions = sorted(set(x[-3:] for x in crossovers if x))
+
+            # Extract the unique regions using regex to get the code after the count
+            # Entries are like "35CH1", "35CH10", "100DH19" - extract the alphanumeric code
+            regions = []
+            for x in crossovers:
+                if x:
+                    match = re.match(r'\d+([A-Z0-9]+)', x)
+                    if match:
+                        regions.append(match.group(1))
+            regions = sorted(set(regions))
             
             if len(regions) > 1:
                 # If there is recombination (more than one region), join them with a dash.

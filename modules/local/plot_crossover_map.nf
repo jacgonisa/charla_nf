@@ -16,12 +16,12 @@ process PLOT_CROSSOVER_MAP {
     path "*.svg", emit: crossover_plots
     path "*.txt", emit: coverage_data
    // path "*.log", emit: log_files
-    path "summary_mm_sr_ARMSandCEN_againstCol.paf", emit: col_merged_paf
-    path "summary_mm_sr_ARMSandCEN_againstLer.paf", emit: ler_merged_paf
-    path "summary_mm_sr_ARMSandCEN_againstCol.filtered.paf", emit: col_filtered_paf
-    path "summary_mm_sr_ARMSandCEN_againstLer.filtered.paf", emit: ler_filtered_paf
-    path "high_coverage_regions_*againstCol*.bed", emit: col_high_coverage_bed
-    path "high_coverage_regions_*againstLer*.bed", emit: ler_high_coverage_bed
+    path "summary_mm_sr_ARMSandCEN_against${params.parent1_name}.paf", emit: parent1_merged_paf
+    path "summary_mm_sr_ARMSandCEN_against${params.parent2_name}.paf", emit: parent2_merged_paf
+    path "summary_mm_sr_ARMSandCEN_against${params.parent1_name}.filtered.paf", emit: parent1_filtered_paf
+    path "summary_mm_sr_ARMSandCEN_against${params.parent2_name}.filtered.paf", emit: parent2_filtered_paf
+    path "high_coverage_regions_*against${params.parent1_name}*.bed", emit: parent1_high_coverage_bed, optional: true
+    path "high_coverage_regions_*against${params.parent2_name}*.bed", emit: parent2_high_coverage_bed, optional: true
     path "filtering_stats.txt", emit: filtering_stats
 
 script:
@@ -94,7 +94,8 @@ Rscript ${projectDir}/scripts/13-plot_crossover_map.R \
     --ler_paf summary_mm_sr_ARMSandCEN_against${params.parent2_name}.filtered.paf \
     --sample_name ${sample_name} \
     --parent1_name ${params.parent1_name} \
-    --parent2_name ${params.parent2_name}
+    --parent2_name ${params.parent2_name} \
+    --centromere_bed ${params.centromere_bed ?: 'NA'}
 
 
 
