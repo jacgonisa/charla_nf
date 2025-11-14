@@ -81,7 +81,7 @@ workflow CHARLA_MAPPING {
     def chromosomes = 1..params.num_chromosomes
 
     // Create combinations channel
-    ch_cenhapmer_combinations = Channel.of(accessions)
+    ch_cenhapmer_combinations = Channel.fromList(accessions)
         .flatMap { acc -> categories.collect { cat -> [acc, cat] } }
         .flatMap { acc, cat -> chromosomes.collect { chr -> [acc, cat, chr] } }
         .combine(ch_simplified.map { meta, fasta -> fasta })
@@ -99,10 +99,10 @@ workflow CHARLA_MAPPING {
     ch_script_file = Channel.fromPath("${projectDir}/rust/kmer_processor/target/release/kmer_processor")
 
     // Wait for all cenhapmer counts to complete before processing
-    GET_COUNTS_CENHAPMER.out.collect().map { it -> "done" }
+    ch_all_cenhapmer_done = GET_COUNTS_CENHAPMER.out.collect()
 
     PROCESS_CENHAPMER_COUNTS(
-        ch_cenhapmer_dir_path,
+        ch_cenhapmer_dir_path.combine(ch_all_cenhapmer_done).map { it[0] },
         ch_fasta_for_postproc,
         ch_script_file,
         params.sample_id

@@ -6,19 +6,26 @@ Replaces bases with quality scores below threshold with 'N'.
 
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
 import sys
+import gzip
 
 def replace_low_quality_bases(input_fastq, output_fastq, min_quality):
     """
     Reads a fastq file and replaces bases with a quality score lower than
     min_quality with 'N'.
-    
+
     Args:
-        input_fastq (str): The path to the input fastq file.
+        input_fastq (str): The path to the input fastq file (plain or gzipped).
         output_fastq (str): The path to the output fastq file.
         min_quality (int): The minimum Phred quality score. Bases below this
                            score will be replaced by 'N'.
     """
-    with open(input_fastq, "r") as in_handle, open(output_fastq, "w") as out_handle:
+    # Handle both gzipped and plain FASTQ files
+    if input_fastq.endswith('.gz'):
+        in_handle = gzip.open(input_fastq, "rt")
+    else:
+        in_handle = open(input_fastq, "r")
+
+    with in_handle, open(output_fastq, "w") as out_handle:
         processed_reads = 0
         masked_bases = 0
         total_bases = 0
