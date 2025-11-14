@@ -1,6 +1,9 @@
 process FASTQ_TO_FASTA {
     tag "$meta.id"
-    label 'process_low'
+    label 'process_medium'
+
+    // Override time for large files
+    time '8h'
 
     // Software environment (if needed)
     // conda "bioconda::seqkit=1.4 bioconda::biopython=1.81"
