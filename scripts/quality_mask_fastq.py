@@ -47,7 +47,8 @@ def replace_low_quality_bases(input_fastq, output_fastq, min_quality):
             # Only modify sequence if there are bases to mask
             if num_masked > 0:
                 # Convert sequence to numpy array for fast masking
-                seq_array = np.frombuffer(seq.encode('ascii'), dtype='S1')
+                # Use copy() to make array writable (frombuffer creates read-only)
+                seq_array = np.frombuffer(seq.encode('ascii'), dtype='S1').copy()
                 seq_array[low_qual_mask] = b'N'
                 new_seq = seq_array.tobytes().decode('ascii')
             else:
