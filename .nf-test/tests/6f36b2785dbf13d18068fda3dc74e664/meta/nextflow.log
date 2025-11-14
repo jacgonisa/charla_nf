@@ -1,0 +1,81 @@
+Oct-17 16:34:44.166 [main] DEBUG nextflow.cli.Launcher - $> nextflow -quiet -log /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/6f36b2785dbf13d18068fda3dc74e664/meta/nextflow.log run /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-6f36b2785dbf13d18068fda3dc74e664.nf -c /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config -c /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config -params-file /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/6f36b2785dbf13d18068fda3dc74e664/meta/params.json -ansi-log false -profile local -with-trace /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/6f36b2785dbf13d18068fda3dc74e664/meta/trace.csv -w /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/6f36b2785dbf13d18068fda3dc74e664/work
+Oct-17 16:34:44.301 [main] INFO  nextflow.cli.CmdRun - N E X T F L O W  ~  version 25.04.6
+Oct-17 16:34:44.332 [main] DEBUG nextflow.plugin.PluginsFacade - Setting up plugin manager > mode=prod; embedded=false; plugins-dir=/home/jg2070/.nextflow/plugins; core-plugins: nf-amazon@2.15.0,nf-azure@1.16.0,nf-cloudcache@0.4.3,nf-codecommit@0.2.3,nf-console@1.2.1,nf-google@1.21.1,nf-k8s@1.0.0,nf-tower@1.11.4,nf-wave@1.12.1
+Oct-17 16:34:44.381 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Enabled plugins: []
+Oct-17 16:34:44.382 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Disabled plugins: []
+Oct-17 16:34:44.384 [main] INFO  org.pf4j.DefaultPluginManager - PF4J version 3.12.0 in 'deployment' mode
+Oct-17 16:34:44.395 [main] INFO  org.pf4j.AbstractPluginManager - No plugins
+Oct-17 16:34:44.429 [main] DEBUG nextflow.config.ConfigBuilder - Found config base: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-17 16:34:44.433 [main] DEBUG nextflow.config.ConfigBuilder - User config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-17 16:34:44.435 [main] DEBUG nextflow.config.ConfigBuilder - User config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config
+Oct-17 16:34:44.437 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-17 16:34:44.438 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-17 16:34:44.438 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config
+Oct-17 16:34:44.475 [main] DEBUG n.secret.LocalSecretsProvider - Secrets store: /home/jg2070/.nextflow/secrets/store.json
+Oct-17 16:34:44.478 [main] DEBUG nextflow.secret.SecretsLoader - Discovered secrets providers: [nextflow.secret.LocalSecretsProvider@62ddd21b] - activable => nextflow.secret.LocalSecretsProvider@62ddd21b
+Oct-17 16:34:44.502 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `local`
+Oct-17 16:34:45.930 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `local`
+Oct-17 16:34:46.048 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `local`
+Oct-17 16:34:46.068 [main] DEBUG nextflow.config.ConfigBuilder - Available config profiles: [cluster, debug, test, apptainer, gpu, local, wave, docker, gitpod, shifter, mamba, charliecloud, conda, singularity, arm, test_full, podman]
+Oct-17 16:34:46.126 [main] DEBUG nextflow.cli.CmdRun - Applied DSL=2 from script declaration
+Oct-17 16:34:46.150 [main] INFO  nextflow.cli.CmdRun - Launching `/home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-6f36b2785dbf13d18068fda3dc74e664.nf` [agitated_bohr] DSL2 - revision: c1037083af
+Oct-17 16:34:46.154 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins declared=[nf-schema@2.4.2]
+Oct-17 16:34:46.158 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins default=[]
+Oct-17 16:34:46.158 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins resolved requirement=[nf-schema@2.4.2]
+Oct-17 16:34:46.159 [main] DEBUG nextflow.plugin.PluginUpdater - Installing plugin nf-schema version: 2.4.2
+Oct-17 16:34:46.177 [main] INFO  org.pf4j.AbstractPluginManager - Plugin 'nf-schema@2.4.2' resolved
+Oct-17 16:34:46.178 [main] INFO  org.pf4j.AbstractPluginManager - Start plugin 'nf-schema@2.4.2'
+Oct-17 16:34:46.184 [main] DEBUG nextflow.plugin.BasePlugin - Plugin started nf-schema@2.4.2
+Oct-17 16:34:46.251 [main] DEBUG nextflow.Session - Session UUID: 178f2c9c-5c5e-4539-ba7b-961c62c7f785
+Oct-17 16:34:46.251 [main] DEBUG nextflow.Session - Run name: agitated_bohr
+Oct-17 16:34:46.251 [main] DEBUG nextflow.Session - Executor pool size: 24
+Oct-17 16:34:46.257 [main] DEBUG nextflow.file.FilePorter - File porter settings maxRetries=3; maxTransfers=50; pollTimeout=null
+Oct-17 16:34:46.261 [main] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'FileTransfer' minSize=10; maxSize=72; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Oct-17 16:34:46.286 [main] DEBUG nextflow.cli.CmdRun - 
+  Version: 25.04.6 build 5954
+  Created: 01-07-2025 11:27 UTC (12:27 BST)
+  System: Linux 6.14.0-33-generic
+  Runtime: Groovy 4.0.26 on OpenJDK 64-Bit Server VM 23.0.2-internal-adhoc.conda.src
+  Encoding: UTF-8 (UTF-8)
+  Process: 1956847@BOT-B01941D [127.0.1.1]
+  CPUs: 24 - Mem: 187.9 GB (114.9 GB) - Swap: 8 GB (8 GB)
+Oct-17 16:34:46.337 [main] DEBUG nextflow.Session - Work-dir: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/6f36b2785dbf13d18068fda3dc74e664/work [ext2/ext3]
+Oct-17 16:34:46.337 [main] DEBUG nextflow.Session - Script base path does not exist or is not a directory: /home/jg2070/Desktop/PhD/crossover/charla_nf/bin
+Oct-17 16:34:46.351 [main] DEBUG nextflow.executor.ExecutorFactory - Extension executors providers=[]
+Oct-17 16:34:46.360 [main] DEBUG nextflow.Session - Observer factory: DefaultObserverFactory
+Oct-17 16:34:46.400 [main] DEBUG nextflow.Session - Observer factory: ValidationObserverFactory
+Oct-17 16:34:46.406 [main] DEBUG nextflow.Session - Observer factory (v2): LinObserverFactory
+Oct-17 16:34:46.435 [main] DEBUG nextflow.cache.CacheFactory - Using Nextflow cache factory: nextflow.cache.DefaultCacheFactory
+Oct-17 16:34:46.445 [main] DEBUG nextflow.util.CustomThreadPool - Creating default thread pool > poolSize: 25; maxThreads: 1000
+Oct-17 16:34:46.521 [main] DEBUG nextflow.Session - Session start
+Oct-17 16:34:46.530 [main] DEBUG nextflow.trace.TraceFileObserver - Workflow started -- trace file: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/6f36b2785dbf13d18068fda3dc74e664/meta/trace.csv
+Oct-17 16:34:46.534 [main] DEBUG n.validation.config.ValidationConfig - Set `validation.monochromeLogs` to true
+Oct-17 16:34:46.536 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.enabled` to true
+Oct-17 16:34:46.537 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.showHiddenParameter` to show_hidden
+Oct-17 16:34:46.537 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.fullParameter` to help_full
+Oct-17 16:34:46.537 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.command` to nextflow run jacgonisa/charla_nf --reads data/fastq/ColLer_F1_pollen.fq.gz --sample_id ColLer_F1 --outdir <OUTDIR>
+Oct-17 16:34:46.886 [main] DEBUG nextflow.script.ScriptRunner - > Launching execution
+Oct-17 16:34:47.047 [main] DEBUG nextflow.script.ScriptRunner - Parsed script files:
+  Script_eb5937a00d2593ff: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-6f36b2785dbf13d18068fda3dc74e664.nf
+  Script_21fe67022ec32eac: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/generate_readmers_kmc.nf
+Oct-17 16:34:47.047 [main] DEBUG nextflow.Session - Session aborted -- Cause: A process named 'generate_readmers_kmc' is already defined or included in script: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-6f36b2785dbf13d18068fda3dc74e664.nf
+Oct-17 16:34:47.057 [main] ERROR nextflow.cli.Launcher - @unknown
+nextflow.exception.DuplicateModuleFunctionException: A process named 'generate_readmers_kmc' is already defined or included in script: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-6f36b2785dbf13d18068fda3dc74e664.nf
+	at nextflow.script.ScriptMeta.checkComponentName(ScriptMeta.groovy:171)
+	at nextflow.script.ScriptMeta.addModule0(ScriptMeta.groovy:322)
+	at nextflow.script.ScriptMeta.addModule(ScriptMeta.groovy:315)
+	at nextflow.script.ScriptMeta.addModule(ScriptMeta.groovy:305)
+	at nextflow.script.IncludeDef.load0(IncludeDef.groovy:116)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at Script_eb5937a00d2593ff.runScript(Script_eb5937a00d2593ff:13)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.script.BaseScript.run0(BaseScript.groovy:159)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.script.BaseScript.run(BaseScript.groovy:193)
+	at nextflow.script.parser.v1.ScriptLoaderV1.runScript(ScriptLoaderV1.groovy:246)
+	at nextflow.script.parser.v1.ScriptLoaderV1.runScript(ScriptLoaderV1.groovy)
+	at nextflow.script.ScriptRunner.run(ScriptRunner.groovy:246)
+	at nextflow.script.ScriptRunner.execute(ScriptRunner.groovy:139)
+	at nextflow.cli.CmdRun.run(CmdRun.groovy:379)
+	at nextflow.cli.Launcher.run(Launcher.groovy:513)
+	at nextflow.cli.Launcher.main(Launcher.groovy:673)

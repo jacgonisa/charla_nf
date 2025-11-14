@@ -1,0 +1,2 @@
+task_id	hash	native_id	name	status	exit	submit	duration	realtime	%cpu	peak_rss	peak_vmem	rchar	wchar
+1	c0/cc7060	230759	FASTQ_TO_FASTA (test_sample_masked)	COMPLETED	0	2025-10-20 12:10:06.889	579ms	420ms	421.9%	7.5 MB	1.2 GB	5.9 MB	266 KB

@@ -1,0 +1,2 @@
+task_id	hash	native_id	name	status	exit	submit	duration	realtime	%cpu	peak_rss	peak_vmem	rchar	wchar
+1	b8/2707aa	235172	SIMPLIFY_HEADERS (test_invalid)	FAILED	1	2025-10-20 12:10:45.356	168ms	100ms	-	-	-	-	-

@@ -1,0 +1,90 @@
+Oct-20 12:10:13.904 [main] DEBUG nextflow.cli.Launcher - $> nextflow -quiet -log /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/meta/nextflow.log run /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-d1712d00714abe6cb2fe69e5c391eb2c.nf -c /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config -c /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config -params-file /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/meta/params.json -ansi-log false -profile test -with-trace /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/meta/trace.csv -w /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/work -stub
+Oct-20 12:10:13.941 [main] INFO  nextflow.cli.CmdRun - N E X T F L O W  ~  version 25.04.6
+Oct-20 12:10:13.955 [main] DEBUG nextflow.plugin.PluginsFacade - Setting up plugin manager > mode=prod; embedded=false; plugins-dir=/home/jg2070/.nextflow/plugins; core-plugins: nf-amazon@2.15.0,nf-azure@1.16.0,nf-cloudcache@0.4.3,nf-codecommit@0.2.3,nf-console@1.2.1,nf-google@1.21.1,nf-k8s@1.0.0,nf-tower@1.11.4,nf-wave@1.12.1
+Oct-20 12:10:13.973 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Enabled plugins: []
+Oct-20 12:10:13.973 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Disabled plugins: []
+Oct-20 12:10:13.975 [main] INFO  org.pf4j.DefaultPluginManager - PF4J version 3.12.0 in 'deployment' mode
+Oct-20 12:10:13.988 [main] INFO  org.pf4j.AbstractPluginManager - No plugins
+Oct-20 12:10:13.999 [main] DEBUG nextflow.config.ConfigBuilder - Found config base: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:14.001 [main] DEBUG nextflow.config.ConfigBuilder - User config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:14.001 [main] DEBUG nextflow.config.ConfigBuilder - User config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config
+Oct-20 12:10:14.002 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:14.002 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:14.002 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config
+Oct-20 12:10:14.018 [main] DEBUG n.secret.LocalSecretsProvider - Secrets store: /home/jg2070/.nextflow/secrets/store.json
+Oct-20 12:10:14.020 [main] DEBUG nextflow.secret.SecretsLoader - Discovered secrets providers: [nextflow.secret.LocalSecretsProvider@16c3ca31] - activable => nextflow.secret.LocalSecretsProvider@16c3ca31
+Oct-20 12:10:14.034 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `test`
+Oct-20 12:10:14.528 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `test`
+Oct-20 12:10:14.592 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `test`
+Oct-20 12:10:14.601 [main] DEBUG nextflow.config.ConfigBuilder - Available config profiles: [cluster, debug, test, apptainer, gpu, local, wave, docker, gitpod, shifter, mamba, charliecloud, conda, singularity, arm, test_full, podman]
+Oct-20 12:10:14.628 [main] DEBUG nextflow.cli.CmdRun - Applied DSL=2 from script declaration
+Oct-20 12:10:14.637 [main] INFO  nextflow.cli.CmdRun - Launching `/home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-d1712d00714abe6cb2fe69e5c391eb2c.nf` [admiring_kare] DSL2 - revision: 4ff6adb80e
+Oct-20 12:10:14.637 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins declared=[nf-schema@2.4.2]
+Oct-20 12:10:14.638 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins default=[]
+Oct-20 12:10:14.638 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins resolved requirement=[nf-schema@2.4.2]
+Oct-20 12:10:14.639 [main] DEBUG nextflow.plugin.PluginUpdater - Installing plugin nf-schema version: 2.4.2
+Oct-20 12:10:14.644 [main] INFO  org.pf4j.AbstractPluginManager - Plugin 'nf-schema@2.4.2' resolved
+Oct-20 12:10:14.644 [main] INFO  org.pf4j.AbstractPluginManager - Start plugin 'nf-schema@2.4.2'
+Oct-20 12:10:14.648 [main] DEBUG nextflow.plugin.BasePlugin - Plugin started nf-schema@2.4.2
+Oct-20 12:10:14.675 [main] DEBUG nextflow.Session - Session UUID: d9b2eb35-8ab1-48c9-ae4e-f3e12bbcc98d
+Oct-20 12:10:14.675 [main] DEBUG nextflow.Session - Run name: admiring_kare
+Oct-20 12:10:14.676 [main] DEBUG nextflow.Session - Executor pool size: 24
+Oct-20 12:10:14.680 [main] DEBUG nextflow.file.FilePorter - File porter settings maxRetries=3; maxTransfers=50; pollTimeout=null
+Oct-20 12:10:14.683 [main] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'FileTransfer' minSize=10; maxSize=72; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Oct-20 12:10:14.698 [main] DEBUG nextflow.cli.CmdRun - 
+  Version: 25.04.6 build 5954
+  Created: 01-07-2025 11:27 UTC (12:27 BST)
+  System: Linux 6.14.0-33-generic
+  Runtime: Groovy 4.0.26 on OpenJDK 64-Bit Server VM 23.0.2-internal-adhoc.conda.src
+  Encoding: UTF-8 (UTF-8)
+  Process: 231817@BOT-B01941D [127.0.1.1]
+  CPUs: 24 - Mem: 187.9 GB (145.2 GB) - Swap: 8 GB (8 GB)
+Oct-20 12:10:14.721 [main] DEBUG nextflow.Session - Work-dir: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/work [ext2/ext3]
+Oct-20 12:10:14.721 [main] DEBUG nextflow.Session - Script base path does not exist or is not a directory: /home/jg2070/Desktop/PhD/crossover/charla_nf/bin
+Oct-20 12:10:14.728 [main] DEBUG nextflow.executor.ExecutorFactory - Extension executors providers=[]
+Oct-20 12:10:14.733 [main] DEBUG nextflow.Session - Observer factory: DefaultObserverFactory
+Oct-20 12:10:14.744 [main] DEBUG nextflow.Session - Observer factory: ValidationObserverFactory
+Oct-20 12:10:14.746 [main] DEBUG nextflow.Session - Observer factory (v2): LinObserverFactory
+Oct-20 12:10:14.760 [main] DEBUG nextflow.cache.CacheFactory - Using Nextflow cache factory: nextflow.cache.DefaultCacheFactory
+Oct-20 12:10:14.765 [main] DEBUG nextflow.util.CustomThreadPool - Creating default thread pool > poolSize: 25; maxThreads: 1000
+Oct-20 12:10:14.812 [main] DEBUG nextflow.Session - Session start
+Oct-20 12:10:14.814 [main] DEBUG nextflow.trace.TraceFileObserver - Workflow started -- trace file: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/meta/trace.csv
+Oct-20 12:10:14.818 [main] DEBUG n.validation.config.ValidationConfig - Set `validation.monochromeLogs` to true
+Oct-20 12:10:14.819 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.enabled` to true
+Oct-20 12:10:14.819 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.showHiddenParameter` to show_hidden
+Oct-20 12:10:14.820 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.fullParameter` to help_full
+Oct-20 12:10:14.820 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.command` to nextflow run jacgonisa/charla_nf --reads <READS> --sample_id <SAMPLE_ID> --parent1_name <PARENT1> --parent2_name <PARENT2> --parent1_bed <PARENT1_BED> --parent2_bed <PARENT2_BED> --outdir <OUTDIR>
+Oct-20 12:10:14.931 [main] DEBUG nextflow.script.ScriptRunner - > Launching execution
+Oct-20 12:10:15.035 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:generate_histogram_kmc` matches process generate_histogram_kmc
+Oct-20 12:10:15.048 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:15.048 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:15.052 [main] DEBUG nextflow.executor.Executor - [warm up] executor > local
+Oct-20 12:10:15.056 [main] DEBUG n.processor.LocalPollingMonitor - Creating local task monitor for executor 'local' > cpus=24; memory=187.9 GB; capacity=24; pollInterval=100ms; dumpInterval=5m
+Oct-20 12:10:15.057 [main] DEBUG n.processor.TaskPollingMonitor - >>> barrier register (monitor: local)
+Oct-20 12:10:15.070 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'generate_histogram_kmc': maxForks=0; fair=false; array=0
+Oct-20 12:10:15.105 [main] DEBUG nextflow.Session - Config process names validation disabled as requested
+Oct-20 12:10:15.106 [main] DEBUG nextflow.Session - Igniting dataflow network (1)
+Oct-20 12:10:15.106 [main] DEBUG nextflow.processor.TaskProcessor - Starting process > generate_histogram_kmc
+Oct-20 12:10:15.106 [main] DEBUG nextflow.script.ScriptRunner - Parsed script files:
+  Script_b4863b9db440397c: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test-d1712d00714abe6cb2fe69e5c391eb2c.nf
+  Script_b8a1226285bab4a8: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/generate_histogram_kmc.nf
+Oct-20 12:10:15.106 [main] DEBUG nextflow.script.ScriptRunner - > Awaiting termination 
+Oct-20 12:10:15.106 [main] DEBUG nextflow.Session - Session await
+Oct-20 12:10:15.145 [Actor Thread 8] DEBUG nextflow.container.SingularityCache - Singularity found local store for image=docker://jacgonisa/charla_nf:latest; path=/home/jg2070/.nextflow/singularity/jacgonisa-charla_nf-latest.img
+Oct-20 12:10:15.187 [Task submitter] DEBUG n.executor.local.LocalTaskHandler - Launch cmd line: /bin/bash -ue .command.run
+Oct-20 12:10:15.188 [Task submitter] INFO  nextflow.Session - [41/15444a] Submitted process > generate_histogram_kmc (test_histo)
+Oct-20 12:10:15.364 [Task monitor] DEBUG n.processor.TaskPollingMonitor - Task completed > TaskHandler[id: 1; name: generate_histogram_kmc (test_histo); status: COMPLETED; exit: 0; error: -; workDir: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d1712d00714abe6cb2fe69e5c391eb2c/work/41/15444ace1d5072eabd7c1b7261ddbd]
+Oct-20 12:10:15.365 [Task monitor] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'TaskFinalizer' minSize=10; maxSize=72; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Oct-20 12:10:15.386 [main] DEBUG nextflow.Session - Session await > all processes finished
+Oct-20 12:10:15.463 [Task monitor] DEBUG n.processor.TaskPollingMonitor - <<< barrier arrives (monitor: local) - terminating tasks monitor poll loop
+Oct-20 12:10:15.464 [main] DEBUG nextflow.Session - Session await > all barriers passed
+Oct-20 12:10:15.465 [main] DEBUG nextflow.util.ThreadPoolManager - Thread pool 'TaskFinalizer' shutdown completed (hard=false)
+Oct-20 12:10:15.470 [main] DEBUG n.trace.WorkflowStatsObserver - Workflow completed > WorkflowStats[succeededCount=1; failedCount=0; ignoredCount=0; cachedCount=0; pendingCount=0; submittedCount=0; runningCount=0; retriesCount=0; abortedCount=0; succeedDuration=5ms; failedDuration=0ms; cachedDuration=0ms;loadCpus=0; loadMemory=0; peakRunning=1; peakCpus=1; peakMemory=6 GB; ]
+Oct-20 12:10:15.470 [main] DEBUG nextflow.trace.TraceFileObserver - Workflow completed -- saving trace file
+Oct-20 12:10:15.471 [main] DEBUG nextflow.trace.ReportObserver - Workflow completed -- rendering execution report
+Oct-20 12:10:15.740 [main] DEBUG nextflow.trace.TimelineObserver - Workflow completed -- rendering execution timeline
+Oct-20 12:10:15.788 [main] DEBUG nextflow.cache.CacheDB - Closing CacheDB done
+Oct-20 12:10:15.794 [main] INFO  org.pf4j.AbstractPluginManager - Stop plugin 'nf-schema@2.4.2'
+Oct-20 12:10:15.794 [main] DEBUG nextflow.plugin.BasePlugin - Plugin stopped nf-schema
+Oct-20 12:10:15.795 [main] DEBUG nextflow.util.ThreadPoolManager - Thread pool 'FileTransfer' shutdown completed (hard=false)
+Oct-20 12:10:15.795 [main] DEBUG nextflow.script.ScriptRunner - > Execution complete -- Goodbye

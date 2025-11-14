@@ -31,6 +31,9 @@ include { SEGMENT_READS } from '../modules/local/segment_reads.nf'
 include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
 include { PLOT_CROSSOVER_MAP } from '../modules/local/plot_crossover_map.nf'
 include { NON_HYBRID_READS_ANALYSIS } from '../modules/local/non_hybrid_reads_analysis.nf'
+include { LARGE_INDEL_ANALYSIS } from '../modules/local/large_indel_analysis.nf'
+include { MAFFT_ALIGN } from '../modules/local/mafft/align.nf'
+include { ANALYZE_MAFFT_ALIGNMENT } from '../modules/local/analyze_mafft_alignment.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -466,6 +469,42 @@ non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
     ch_reference_genomes.first()                               // Reference genomes directory (reuse from mapping analysis)
 )
 
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    LARGE INDEL ANALYSIS (>50bp) - Satellite Structure Investigation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// Run large indel analysis to investigate 178bp satellite patterns
+large_indel_analysis_output = LARGE_INDEL_ANALYSIS(
+    non_hybrid_analysis_output.output_directory,              // Directory from NON_HYBRID_READS_ANALYSIS
+    processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
+    ch_reference_genomes.first(),                              // Reference genomes directory
+    ch_parent1_bed.first(),                                    // Parent 1 BED file for chromosome reconstruction
+    ch_parent2_bed.first()                                     // Parent 2 BED file for chromosome reconstruction
+)
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    MAFFT ALIGNMENT - Align satellite blocks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// Prepare satellite blocks for MAFFT alignment
+ch_satellite_blocks = large_indel_analysis_output.satellite_blocks
+    .map { blocks_file ->
+        def meta = [id: params.sample_id + '_satellite_blocks']
+        tuple(meta, blocks_file)
+    }
+
+// Run MAFFT alignment on satellite blocks
+mafft_output = MAFFT_ALIGN(ch_satellite_blocks)
+
+// Analyze MAFFT alignment and update satellite analysis
+mafft_analysis_output = ANALYZE_MAFFT_ALIGNMENT(
+    mafft_output.fas,
+    large_indel_analysis_output.satellite_analysis
+)
 
 
     emit:
@@ -520,6 +559,20 @@ non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
     nonhybrid_bam_files = non_hybrid_analysis_output.bam_files
     nonhybrid_bai_files = non_hybrid_analysis_output.bai_files
     indel_analysis = non_hybrid_analysis_output.indel_results
+
+    // Large indel analysis outputs
+    large_indel_directory = large_indel_analysis_output.output_directory
+    large_indels_catalog = large_indel_analysis_output.large_indels_catalog
+    large_indel_sequences = large_indel_analysis_output.indel_sequences
+    large_indel_mappings = large_indel_analysis_output.mapping_files
+    large_indel_genomic_plots = large_indel_analysis_output.genomic_plots
+    large_indel_satellite_blocks = large_indel_analysis_output.satellite_blocks
+    large_indel_satellite_analysis = large_indel_analysis_output.satellite_analysis
+    large_indel_structure_plots = large_indel_analysis_output.structure_plots
+
+    // MAFFT alignment outputs
+    mafft_alignment = mafft_output.fas
+    mafft_analysis_updated = mafft_analysis_output.updated_analysis
 
 }
 

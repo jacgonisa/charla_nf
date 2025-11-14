@@ -186,6 +186,7 @@ RUN echo "=== Verifying installations ===" && \
     seqkit version && \
     minimap2 --version && \
     samtools --version && \
+    mafft --version && \
     R --version && \
     python --version && \
     echo "=== All tools verified ==="

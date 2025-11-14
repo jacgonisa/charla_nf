@@ -1,0 +1,310 @@
+Oct-20 12:10:49.100 [main] DEBUG nextflow.cli.Launcher - $> nextflow -quiet -log /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/meta/nextflow.log run /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/../main.nf -c /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config -c /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config -params-file /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/meta/params.json -ansi-log false -profile test -with-trace /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/meta/trace.csv -w /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/work
+Oct-20 12:10:49.139 [main] INFO  nextflow.cli.CmdRun - N E X T F L O W  ~  version 25.04.6
+Oct-20 12:10:49.152 [main] DEBUG nextflow.plugin.PluginsFacade - Setting up plugin manager > mode=prod; embedded=false; plugins-dir=/home/jg2070/.nextflow/plugins; core-plugins: nf-amazon@2.15.0,nf-azure@1.16.0,nf-cloudcache@0.4.3,nf-codecommit@0.2.3,nf-console@1.2.1,nf-google@1.21.1,nf-k8s@1.0.0,nf-tower@1.11.4,nf-wave@1.12.1
+Oct-20 12:10:49.175 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Enabled plugins: []
+Oct-20 12:10:49.176 [main] INFO  o.pf4j.DefaultPluginStatusProvider - Disabled plugins: []
+Oct-20 12:10:49.177 [main] INFO  org.pf4j.DefaultPluginManager - PF4J version 3.12.0 in 'deployment' mode
+Oct-20 12:10:49.183 [main] INFO  org.pf4j.AbstractPluginManager - No plugins
+Oct-20 12:10:49.196 [main] DEBUG nextflow.config.ConfigBuilder - Found config base: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:49.199 [main] DEBUG nextflow.config.ConfigBuilder - User config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:49.199 [main] DEBUG nextflow.config.ConfigBuilder - User config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config
+Oct-20 12:10:49.199 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:49.199 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/nextflow.config
+Oct-20 12:10:49.199 [main] DEBUG nextflow.config.ConfigBuilder - Parsing config file: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/nextflow.config
+Oct-20 12:10:49.214 [main] DEBUG n.secret.LocalSecretsProvider - Secrets store: /home/jg2070/.nextflow/secrets/store.json
+Oct-20 12:10:49.216 [main] DEBUG nextflow.secret.SecretsLoader - Discovered secrets providers: [nextflow.secret.LocalSecretsProvider@62ddd21b] - activable => nextflow.secret.LocalSecretsProvider@62ddd21b
+Oct-20 12:10:49.227 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `test`
+Oct-20 12:10:49.742 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `test`
+Oct-20 12:10:49.807 [main] DEBUG nextflow.config.ConfigBuilder - Applying config profile: `test`
+Oct-20 12:10:49.817 [main] DEBUG nextflow.config.ConfigBuilder - Available config profiles: [cluster, debug, test, apptainer, gpu, local, wave, docker, gitpod, shifter, mamba, charliecloud, conda, singularity, arm, test_full, podman]
+Oct-20 12:10:49.839 [main] DEBUG nextflow.cli.CmdRun - Applied DSL=2 by global default
+Oct-20 12:10:49.848 [main] INFO  nextflow.cli.CmdRun - Launching `/home/jg2070/Desktop/PhD/crossover/charla_nf/tests/../main.nf` [happy_brenner] DSL2 - revision: 9b4ec5ab54
+Oct-20 12:10:49.849 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins declared=[nf-schema@2.4.2]
+Oct-20 12:10:49.849 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins default=[]
+Oct-20 12:10:49.849 [main] DEBUG nextflow.plugin.PluginsFacade - Plugins resolved requirement=[nf-schema@2.4.2]
+Oct-20 12:10:49.850 [main] DEBUG nextflow.plugin.PluginUpdater - Installing plugin nf-schema version: 2.4.2
+Oct-20 12:10:49.856 [main] INFO  org.pf4j.AbstractPluginManager - Plugin 'nf-schema@2.4.2' resolved
+Oct-20 12:10:49.856 [main] INFO  org.pf4j.AbstractPluginManager - Start plugin 'nf-schema@2.4.2'
+Oct-20 12:10:49.859 [main] DEBUG nextflow.plugin.BasePlugin - Plugin started nf-schema@2.4.2
+Oct-20 12:10:49.887 [main] DEBUG nextflow.Session - Session UUID: f91f3630-f900-41ee-b409-43625ba06e9c
+Oct-20 12:10:49.887 [main] DEBUG nextflow.Session - Run name: happy_brenner
+Oct-20 12:10:49.887 [main] DEBUG nextflow.Session - Executor pool size: 24
+Oct-20 12:10:49.891 [main] DEBUG nextflow.file.FilePorter - File porter settings maxRetries=3; maxTransfers=50; pollTimeout=null
+Oct-20 12:10:49.894 [main] DEBUG nextflow.util.ThreadPoolBuilder - Creating thread pool 'FileTransfer' minSize=10; maxSize=72; workQueue=LinkedBlockingQueue[-1]; allowCoreThreadTimeout=false
+Oct-20 12:10:49.907 [main] DEBUG nextflow.cli.CmdRun - 
+  Version: 25.04.6 build 5954
+  Created: 01-07-2025 11:27 UTC (12:27 BST)
+  System: Linux 6.14.0-33-generic
+  Runtime: Groovy 4.0.26 on OpenJDK 64-Bit Server VM 23.0.2-internal-adhoc.conda.src
+  Encoding: UTF-8 (UTF-8)
+  Process: 235587@BOT-B01941D [127.0.1.1]
+  CPUs: 24 - Mem: 187.9 GB (145.3 GB) - Swap: 8 GB (8 GB)
+Oct-20 12:10:49.932 [main] DEBUG nextflow.Session - Work-dir: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/work [ext2/ext3]
+Oct-20 12:10:49.932 [main] DEBUG nextflow.Session - Script base path does not exist or is not a directory: /home/jg2070/Desktop/PhD/crossover/charla_nf/bin
+Oct-20 12:10:49.939 [main] DEBUG nextflow.executor.ExecutorFactory - Extension executors providers=[]
+Oct-20 12:10:49.944 [main] DEBUG nextflow.Session - Observer factory: DefaultObserverFactory
+Oct-20 12:10:49.954 [main] DEBUG nextflow.Session - Observer factory: ValidationObserverFactory
+Oct-20 12:10:49.957 [main] DEBUG nextflow.Session - Observer factory (v2): LinObserverFactory
+Oct-20 12:10:49.969 [main] DEBUG nextflow.cache.CacheFactory - Using Nextflow cache factory: nextflow.cache.DefaultCacheFactory
+Oct-20 12:10:49.974 [main] DEBUG nextflow.util.CustomThreadPool - Creating default thread pool > poolSize: 25; maxThreads: 1000
+Oct-20 12:10:50.020 [main] DEBUG nextflow.Session - Session start
+Oct-20 12:10:50.023 [main] DEBUG nextflow.trace.TraceFileObserver - Workflow started -- trace file: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/meta/trace.csv
+Oct-20 12:10:50.027 [main] DEBUG n.validation.config.ValidationConfig - Set `validation.monochromeLogs` to true
+Oct-20 12:10:50.028 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.enabled` to true
+Oct-20 12:10:50.028 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.showHiddenParameter` to show_hidden
+Oct-20 12:10:50.028 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.fullParameter` to help_full
+Oct-20 12:10:50.029 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.command` to nextflow run jacgonisa/charla_nf --reads <READS> --sample_id <SAMPLE_ID> --parent1_name <PARENT1> --parent2_name <PARENT2> --parent1_bed <PARENT1_BED> --parent2_bed <PARENT2_BED> --outdir <OUTDIR>
+Oct-20 12:10:50.142 [main] DEBUG nextflow.script.ScriptRunner - > Launching execution
+Oct-20 12:10:50.905 [main] DEBUG nextflow.script.IncludeDef - Loading included plugin extensions with names: [paramsSummaryLog:paramsSummaryLog]; plugin Id: nf-schema
+Oct-20 12:10:50.908 [main] DEBUG n.validation.config.ValidationConfig - Set `validation.monochromeLogs` to true
+Oct-20 12:10:50.909 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.enabled` to true
+Oct-20 12:10:50.909 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.showHiddenParameter` to show_hidden
+Oct-20 12:10:50.909 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.fullParameter` to help_full
+Oct-20 12:10:50.909 [main] DEBUG n.validation.config.HelpConfig - Set `validation.help.command` to nextflow run jacgonisa/charla_nf --reads <READS> --sample_id <SAMPLE_ID> --parent1_name <PARENT1> --parent2_name <PARENT2> --parent1_bed <PARENT1_BED> --parent2_bed <PARENT2_BED> --outdir <OUTDIR>
+Oct-20 12:10:50.909 [main] DEBUG nextflow.script.IncludeDef - Loading included plugin extensions with names: [validateParameters:validateParameters]; plugin Id: nf-schema
+Oct-20 12:10:50.910 [main] DEBUG nextflow.script.IncludeDef - Loading included plugin extensions with names: [paramsSummaryMap:paramsSummaryMap]; plugin Id: nf-schema
+Oct-20 12:10:50.911 [main] DEBUG nextflow.script.IncludeDef - Loading included plugin extensions with names: [samplesheetToList:samplesheetToList]; plugin Id: nf-schema
+Oct-20 12:10:50.994 [main] INFO  nextflow.Nextflow - DEBUG: Selected profile: test
+Oct-20 12:10:50.994 [main] INFO  nextflow.Nextflow - DEBUG: Configured output dir: /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/d315226c071eea1d3fee501151f13c93/output
+Oct-20 12:10:51.018 [main] INFO  nextflow.Nextflow - DEBUG: Inside PIPELINE_INITIALISATION subworkflow
+Oct-20 12:10:51.019 [main] INFO  nextflow.Nextflow - DEBUG: 'reads' parameter value: /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/data/test_sample_longreads.fastq
+Oct-20 12:10:51.019 [main] INFO  nextflow.Nextflow - DEBUG: Does file exist at this path? true
+Oct-20 12:10:51.023 [main] INFO  nextflow.Nextflow - DEBUG: PIPELINE_INITIALISATION subworkflow has finished.
+Oct-20 12:10:51.039 [main] INFO  nextflow.Nextflow - Using parent accessions: Col × Ler
+Oct-20 12:10:51.040 [main] INFO  nextflow.Nextflow - Number of chromosomes: 5
+Oct-20 12:10:51.045 [main] INFO  nextflow.Nextflow - [CHARLA_NF] Detected input format: FASTQ → Will convert to FASTA
+Oct-20 12:10:51.083 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:process_low` matches labels `process_low` for process with name CHARLA_NF:FASTQ_TO_FASTA
+Oct-20 12:10:51.084 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:FASTQ_TO_FASTA` matches process CHARLA_NF:FASTQ_TO_FASTA
+Oct-20 12:10:51.089 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.090 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.093 [main] DEBUG nextflow.executor.Executor - [warm up] executor > local
+Oct-20 12:10:51.097 [main] DEBUG n.processor.LocalPollingMonitor - Creating local task monitor for executor 'local' > cpus=24; memory=187.9 GB; capacity=24; pollInterval=100ms; dumpInterval=5m
+Oct-20 12:10:51.098 [main] DEBUG n.processor.TaskPollingMonitor - >>> barrier register (monitor: local)
+Oct-20 12:10:51.109 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:FASTQ_TO_FASTA': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.124 [main] INFO  nextflow.Nextflow - [CHARLA_NF] Deleteme
+Oct-20 12:10:51.127 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:process_low` matches labels `process_low` for process with name CHARLA_NF:SIMPLIFY_HEADERS_READMER
+Oct-20 12:10:51.127 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:SIMPLIFY_HEADERS` matches process CHARLA_NF:SIMPLIFY_HEADERS_READMER
+Oct-20 12:10:51.129 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.129 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.130 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:SIMPLIFY_HEADERS_READMER': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.133 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withLabel:process_low` matches labels `process_low` for process with name CHARLA_NF:SIMPLIFY_HEADERS_CENHAPMER
+Oct-20 12:10:51.134 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:SIMPLIFY_HEADERS` matches process CHARLA_NF:SIMPLIFY_HEADERS_CENHAPMER
+Oct-20 12:10:51.135 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.135 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.136 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:SIMPLIFY_HEADERS_CENHAPMER': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.149 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:generate_readmers_kmc` matches process CHARLA_NF:generate_readmers_kmc
+Oct-20 12:10:51.150 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.150 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.157 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:generate_readmers_kmc': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.165 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:generate_histogram_kmc` matches process CHARLA_NF:generate_histogram_kmc
+Oct-20 12:10:51.168 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.168 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.168 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:generate_histogram_kmc': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.179 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:get_counts_kmc` matches process CHARLA_NF:get_counts_kmc
+Oct-20 12:10:51.180 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.180 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.180 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:get_counts_kmc': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.192 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:get_counts_cenhapmer_kmc` matches process CHARLA_NF:get_counts_cenhapmer_kmc
+Oct-20 12:10:51.193 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.193 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.194 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:get_counts_cenhapmer_kmc': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.202 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `enable_conda` -- Initialise it to a default value eg. `params.enable_conda = some_value`
+Oct-20 12:10:51.203 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:process_cenhapmer_counts` matches process CHARLA_NF:process_cenhapmer_counts
+Oct-20 12:10:51.204 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.204 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.205 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:process_cenhapmer_counts': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.209 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:COMBINE_HYBRID_PROFILES` matches process CHARLA_NF:COMBINE_HYBRID_PROFILES
+Oct-20 12:10:51.210 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.210 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.210 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:COMBINE_HYBRID_PROFILES': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.213 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `readmer_cutoff` -- Initialise it to a default value eg. `params.readmer_cutoff = some_value`
+Oct-20 12:10:51.213 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `curate_cpus` -- Initialise it to a default value eg. `params.curate_cpus = some_value`
+Oct-20 12:10:51.214 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `curate_memory` -- Initialise it to a default value eg. `params.curate_memory = some_value`
+Oct-20 12:10:51.214 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `curate_time` -- Initialise it to a default value eg. `params.curate_time = some_value`
+Oct-20 12:10:51.216 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:CURATE_HYBRID_PROFILES` matches process CHARLA_NF:CURATE_HYBRID_PROFILES
+Oct-20 12:10:51.217 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.217 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.217 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:CURATE_HYBRID_PROFILES': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.223 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `threshold` -- Initialise it to a default value eg. `params.threshold = some_value`
+Oct-20 12:10:51.224 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `segment_cpus` -- Initialise it to a default value eg. `params.segment_cpus = some_value`
+Oct-20 12:10:51.224 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `segment_memory` -- Initialise it to a default value eg. `params.segment_memory = some_value`
+Oct-20 12:10:51.224 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `segment_time` -- Initialise it to a default value eg. `params.segment_time = some_value`
+Oct-20 12:10:51.226 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:SEGMENT_READS` matches process CHARLA_NF:SEGMENT_READS
+Oct-20 12:10:51.227 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.227 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.227 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:SEGMENT_READS': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.243 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `mapping_cpus` -- Initialise it to a default value eg. `params.mapping_cpus = some_value`
+Oct-20 12:10:51.243 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `mapping_memory` -- Initialise it to a default value eg. `params.mapping_memory = some_value`
+Oct-20 12:10:51.243 [main] WARN  nextflow.script.ScriptBinding - Access to undefined parameter `mapping_time` -- Initialise it to a default value eg. `params.mapping_time = some_value`
+Oct-20 12:10:51.246 [main] DEBUG nextflow.script.ProcessConfig - Config settings `withName:MAPPING_ANALYSIS` matches process CHARLA_NF:MAPPING_ANALYSIS
+Oct-20 12:10:51.247 [main] DEBUG nextflow.executor.ExecutorFactory - << taskConfig executor: null
+Oct-20 12:10:51.247 [main] DEBUG nextflow.executor.ExecutorFactory - >> processorType: 'local'
+Oct-20 12:10:51.248 [main] DEBUG nextflow.processor.TaskProcessor - Creating process 'CHARLA_NF:MAPPING_ANALYSIS': maxForks=0; fair=false; array=0
+Oct-20 12:10:51.253 [main] DEBUG nextflow.script.ScriptRunner - Parsed script files:
+  Script_53fb26d7b1dbd7c7: /home/jg2070/Desktop/PhD/crossover/charla_nf/subworkflows/local/utils_nfcore_charla_nf_pipeline/main.nf
+  Script_cbb88bc9c7e6fafe: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/mapping_analysis.nf
+  Script_cc47fd597606d1f7: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/fastq_to_fasta.nf
+  Script_4f612cfd8c52e8cd: /home/jg2070/Desktop/PhD/crossover/charla_nf/subworkflows/nf-core/utils_nextflow_pipeline/main.nf
+  Script_c7ec9648dc750f16: /home/jg2070/Desktop/PhD/crossover/charla_nf/workflows/charla_nf.nf
+  Script_f1cd58ef19f14a05: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/simplify_headers.nf
+  Script_dfcf31bf1c3717f8: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/get_counts_kmc.nf
+  Script_215a636da7ab24a2: /home/jg2070/Desktop/PhD/crossover/charla_nf/subworkflows/nf-core/utils_nfschema_plugin/main.nf
+  Script_60b58a353e62e25e: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/combine_hybrid_profiles.nf
+  Script_034ad96c56df592e: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/plot_crossover_map.nf
+  Script_fbcb950431d77459: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/curate_hybrid_profiles.nf
+  Script_5c4e8d4051efa81e: /home/jg2070/Desktop/PhD/crossover/charla_nf/subworkflows/nf-core/utils_nfcore_pipeline/main.nf
+  Script_d0a620de2e216b7b: /home/jg2070/Desktop/PhD/crossover/charla_nf/main.nf
+  Script_b8a1226285bab4a8: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/generate_histogram_kmc.nf
+  Script_0a1133977cc5c90a: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/non_hybrid_reads_analysis.nf
+  Script_69ddfb21333fd7f0: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/segment_reads.nf
+  Script_f7d1f74883fcd628: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/generate_readmers_kmc.nf
+  Script_955d981224b7295b: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/process_cenhapmer_counts.nf
+  Script_60a0e0b38fcddaf0: /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/get_counts_cenhapmer_kmc.nf
+Oct-20 12:10:51.253 [main] DEBUG nextflow.Session - Session aborted -- Cause: ERROR: The --parent1_bed parameter must be provided for crossover plotting.
+Oct-20 12:10:51.265 [main] DEBUG nextflow.Session - The following nodes are still active:
+  [operator] flatMap
+  [operator] view
+  [operator] view
+  [operator] map
+  [operator] map
+  [operator] view
+  [operator] view
+  [operator] map
+  [operator] map
+  [operator] map
+  [operator] combine
+  [operator] filter
+  [operator] map
+  [operator] view
+  [operator] map
+  [operator] view
+  [operator] map
+  [operator] view
+  [operator] view
+  [operator] view
+  [operator] map
+  [operator] view
+  [operator] join
+  [operator] map
+  [operator] view
+  [operator] view
+  [operator] map
+  [operator] view
+  [operator] combine
+  [operator] map
+  [operator] view
+  [operator] view
+  [operator] collect
+  [operator] view
+  [operator] map
+  [operator] map
+  [operator] subscribe
+  [operator] collect
+  [operator] view
+  [operator] view
+  [operator] view
+  [operator] collect
+  [operator] collect
+  [operator] map
+  [operator] ifEmpty
+  [operator] view
+  [operator] view
+  [operator] flatten
+  [operator] filter
+  [operator] flatten
+  [operator] filter
+  [operator] flatten
+  [operator] filter
+  [operator] flatten
+  [operator] filter
+
+Oct-20 12:10:51.269 [Task monitor] DEBUG n.processor.TaskPollingMonitor - <<< barrier arrives (monitor: local) - terminating tasks monitor poll loop
+Oct-20 12:10:51.270 [main] ERROR nextflow.cli.Launcher - @unknown
+nextflow.exception.WorkflowScriptErrorException: ERROR: The --parent1_bed parameter must be provided for crossover plotting.
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.Nextflow.error(Nextflow.groovy:241)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at Script_c7ec9648dc750f16$_runScript_closure1$_closure2.doCall(Script_c7ec9648dc750f16:389)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.groovy.reflection.CachedMethod.invoke(CachedMethod.java:343)
+	at groovy.lang.MetaMethod.doMethodInvoke(MetaMethod.java:328)
+	at org.codehaus.groovy.runtime.metaclass.ClosureMetaClass.invokeMethod(ClosureMetaClass.java:280)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+	at groovy.lang.Closure.call(Closure.java:433)
+	at groovy.lang.Closure.call(Closure.java:412)
+	at nextflow.script.WorkflowDef.run0(WorkflowDef.groovy:205)
+	at nextflow.script.WorkflowDef.run(WorkflowDef.groovy:189)
+	at nextflow.script.BindableDef.invoke_a(BindableDef.groovy:51)
+	at nextflow.script.ComponentDef.invoke_o(ComponentDef.groovy:40)
+	at nextflow.script.WorkflowBinding.invokeMethod(WorkflowBinding.groovy:105)
+	at org.codehaus.groovy.runtime.InvokerHelper.invokePogoMethod(InvokerHelper.java:651)
+	at org.codehaus.groovy.runtime.InvokerHelper.invokeMethod(InvokerHelper.java:628)
+	at org.codehaus.groovy.runtime.metaclass.ClosureMetaClass.invokeOnDelegationObjects(ClosureMetaClass.java:392)
+	at org.codehaus.groovy.runtime.metaclass.ClosureMetaClass.invokeMethod(ClosureMetaClass.java:331)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at Script_d0a620de2e216b7b$_runScript_closure1$_closure2.doCall(Script_d0a620de2e216b7b:91)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.groovy.reflection.CachedMethod.invoke(CachedMethod.java:343)
+	at groovy.lang.MetaMethod.doMethodInvoke(MetaMethod.java:328)
+	at org.codehaus.groovy.runtime.metaclass.ClosureMetaClass.invokeMethod(ClosureMetaClass.java:280)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+	at groovy.lang.Closure.call(Closure.java:433)
+	at groovy.lang.Closure.call(Closure.java:412)
+	at nextflow.script.WorkflowDef.run0(WorkflowDef.groovy:205)
+	at nextflow.script.WorkflowDef.run(WorkflowDef.groovy:189)
+	at nextflow.script.BindableDef.invoke_a(BindableDef.groovy:51)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.script.BaseScript.run0(BaseScript.groovy:182)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.script.BaseScript.run(BaseScript.groovy:193)
+	at nextflow.script.parser.v1.ScriptLoaderV1.runScript(ScriptLoaderV1.groovy:246)
+	at nextflow.script.parser.v1.ScriptLoaderV1.runScript(ScriptLoaderV1.groovy)
+	at nextflow.script.ScriptRunner.run(ScriptRunner.groovy:246)
+	at nextflow.script.ScriptRunner.execute(ScriptRunner.groovy:139)
+	at nextflow.cli.CmdRun.run(CmdRun.groovy:379)
+	at nextflow.cli.Launcher.run(Launcher.groovy:513)
+	at nextflow.cli.Launcher.main(Launcher.groovy:673)
+Oct-20 12:10:51.270 [Actor Thread 9] ERROR nextflow.extension.OperatorImpl - @unknown
+nextflow.exception.WorkflowScriptErrorException: ❌ No reference genome directories found in: /home/jg2070/Desktop/PhD/crossover/index
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.Nextflow.error(Nextflow.groovy:241)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at Script_c7ec9648dc750f16$_runScript_closure1$_closure2$_closure41.doCall(Script_c7ec9648dc750f16:349)
+	at Script_c7ec9648dc750f16$_runScript_closure1$_closure2$_closure41.doCall(Script_c7ec9648dc750f16)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.groovy.reflection.CachedMethod.invoke(CachedMethod.java:343)
+	at groovy.lang.MetaMethod.doMethodInvoke(MetaMethod.java:328)
+	at org.codehaus.groovy.runtime.metaclass.ClosureMetaClass.invokeMethod(ClosureMetaClass.java:280)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.extension.OperatorImpl$_ifEmpty_closure30.doCall(OperatorImpl.groovy:1043)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.groovy.reflection.CachedMethod.invoke(CachedMethod.java:343)
+	at groovy.lang.MetaMethod.doMethodInvoke(MetaMethod.java:328)
+	at org.codehaus.groovy.runtime.metaclass.ClosureMetaClass.invokeMethod(ClosureMetaClass.java:280)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+	at org.codehaus.groovy.vmplugin.v8.IndyInterface.fromCache(IndyInterface.java:321)
+	at nextflow.extension.DataflowHelper$3.afterStop(DataflowHelper.groovy:257)
+	at groovyx.gpars.dataflow.operator.DataflowProcessor.fireAfterStop(DataflowProcessor.java:324)
+	at groovyx.gpars.dataflow.operator.DataflowProcessorActor.afterStop(DataflowProcessorActor.java:59)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.groovy.reflection.CachedMethod.invoke(CachedMethod.java:343)
+	at groovy.lang.MetaMethod.doMethodInvoke(MetaMethod.java:328)
+	at groovy.lang.MetaClassImpl.doInvokeMethod(MetaClassImpl.java:1333)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1088)
+	at groovy.lang.MetaClassImpl.invokeMethod(MetaClassImpl.java:1007)
+	at org.codehaus.groovy.runtime.InvokerHelper.invokePojoMethod(InvokerHelper.java:633)
+	at org.codehaus.groovy.runtime.InvokerHelper.invokeMethod(InvokerHelper.java:624)
+	at groovyx.gpars.actor.Actor.callDynamic(Actor.java:369)
+	at groovyx.gpars.actor.Actor.handleTermination(Actor.java:320)
+	at groovyx.gpars.actor.AbstractLoopingActor$1.handleMessage(AbstractLoopingActor.java:86)
+	at groovyx.gpars.util.AsyncMessagingCore.run(AsyncMessagingCore.java:132)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)

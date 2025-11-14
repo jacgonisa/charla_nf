@@ -1,0 +1,56 @@
+ERROR ~ Error executing process > 'generate_readmers_kmc (test_invalid)'
+
+Caused by:
+  Process `generate_readmers_kmc (test_invalid)` terminated with an error exit status (1)
+
+
+Command executed:
+
+  mkdir -p tmp_kmc_test_invalid
+  
+  # Verify input is FASTA
+  if ! head -n 1 test_invalid.fa | grep -q "^>"; then
+      echo "ERROR: test_invalid.fa does not appear to be a valid FASTA file"
+      exit 1
+  fi
+  
+  # Count sequences for logging
+  seq_count=$(grep -c "^>" test_invalid.fa)
+  echo "Processing $seq_count sequences from test_invalid.fa"
+  
+  # Use KMC with FASTA format flag
+  kmc \
+      -k21 \
+      -ci1 \
+      -cs10000 \
+      -fm \
+      test_invalid.fa \
+      test_invalid_k21_kmer_counts \
+      tmp_kmc_test_invalid
+  
+  # Verify output files were created
+  if [[ ! -f "test_invalid_k21_kmer_counts.kmc_pre" || ! -f "test_invalid_k21_kmer_counts.kmc_suf" ]]; then
+      echo "ERROR: KMC failed to generate output files"
+      exit 1
+  fi
+  
+  echo "KMC completed successfully for test_invalid"
+
+Command exit status:
+  1
+
+Command output:
+  ERROR: test_invalid.fa does not appear to be a valid FASTA file
+
+Command error:
+  ERROR: test_invalid.fa does not appear to be a valid FASTA file
+
+Work dir:
+  /home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/80c2b7ae9366e23e294a31d9eb7a5156/work/7f/ec3aedbc2d60f6ce1caa29f733ec82
+
+Container:
+  /home/jg2070/.nextflow/singularity/jacgonisa-charla_nf-latest.img
+
+Tip: when you have fixed the problem you can continue the execution adding the option `-resume` to the run command line
+
+ -- Check '/home/jg2070/Desktop/PhD/crossover/charla_nf/.nf-test/tests/80c2b7ae9366e23e294a31d9eb7a5156/meta/nextflow.log' file for details

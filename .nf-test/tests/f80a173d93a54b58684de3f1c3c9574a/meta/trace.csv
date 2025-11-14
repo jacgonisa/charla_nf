@@ -1,0 +1,2 @@
+task_id	hash	native_id	name	status	exit	submit	duration	realtime	%cpu	peak_rss	peak_vmem	rchar	wchar
+1	4c/cdf88a	233519	generate_readmers_kmc (test_stub)	COMPLETED	0	2025-10-20 12:10:29.780	175ms	6ms	60.0%	0	0	87.2 KB	209 B

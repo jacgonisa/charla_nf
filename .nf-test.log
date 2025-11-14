@@ -1,0 +1,68 @@
+Oct-20 12:10:01.129 [main] INFO  com.askimed.nf.test.App - nf-test 0.9.3
+Oct-20 12:10:01.138 [main] INFO  com.askimed.nf.test.App - Arguments: [test, --profile, test, --update-snapshot]
+Oct-20 12:10:01.644 [main] INFO  com.askimed.nf.test.App - Nextflow Version: 25.04.6
+Oct-20 12:10:01.645 [main] INFO  com.askimed.nf.test.commands.RunTestsCommand - Load config from file /home/jg2070/Desktop/PhD/crossover/charla_nf/nf-test.config...
+Oct-20 12:10:01.941 [main] INFO  com.askimed.nf.test.lang.dependencies.DependencyResolver - Loaded 28 files from directory /home/jg2070/Desktop/PhD/crossover/charla_nf in 0.057 sec
+Oct-20 12:10:01.941 [main] INFO  com.askimed.nf.test.lang.dependencies.DependencyResolver - Found 6 files containing tests.
+Oct-20 12:10:01.941 [main] DEBUG com.askimed.nf.test.lang.dependencies.DependencyResolver - Found files: [/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/get_counts_kmc.nf.test, /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/generate_readmers_kmc.nf.test, /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/simplify_headers.nf.test, /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/generate_histogram_kmc.nf.test, /home/jg2070/Desktop/PhD/crossover/charla_nf/tests/default.nf.test, /home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/fastq_to_fasta.nf.test]
+Oct-20 12:10:02.173 [main] INFO  com.askimed.nf.test.commands.RunTestsCommand - Found 18 tests to execute.
+Oct-20 12:10:02.173 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Started test plan
+Oct-20 12:10:02.173 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test Process FASTQ_TO_FASTA' from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/fastq_to_fasta.nf.test'.
+Oct-20 12:10:02.174 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '9b67f738: Should convert FASTQ to FASTA without masking'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:04.905 [main] DEBUG com.askimed.nf.test.lang.extensions.SnapshotFile - Load snapshots from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/fastq_to_fasta.nf.test.snap'
+Oct-20 12:10:04.924 [main] DEBUG com.askimed.nf.test.lang.extensions.Snapshot - Snapshots 'Should convert FASTQ to FASTA without masking' match.
+Oct-20 12:10:04.934 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '9b67f738: Should convert FASTQ to FASTA without masking' finished. status: PASSED
+Oct-20 12:10:04.935 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '91124cc0: Should convert FASTQ to FASTA with quality masking'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:07.940 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '91124cc0: Should convert FASTQ to FASTA with quality masking' finished. status: PASSED
+Oct-20 12:10:07.941 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'e77decd9: Should handle compressed FASTQ input'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:10.614 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'e77decd9: Should handle compressed FASTQ input' finished. status: PASSED
+Oct-20 12:10:10.615 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'd9cb1919: Should use stub run'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:13.294 [main] DEBUG com.askimed.nf.test.lang.extensions.Snapshot - Snapshots 'Should use stub run' match.
+Oct-20 12:10:13.294 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'd9cb1919: Should use stub run' finished. status: PASSED
+Oct-20 12:10:13.295 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Testsuite 'Test Process FASTQ_TO_FASTA' finished. snapshot file: true, skipped tests: false, failed tests: false
+Oct-20 12:10:13.295 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test Process generate_histogram_kmc' from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/generate_histogram_kmc.nf.test'.
+Oct-20 12:10:13.295 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'd1712d00: Should use stub run - k=21'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:15.843 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'd1712d00: Should use stub run - k=21' finished. status: PASSED
+Oct-20 12:10:15.843 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'c23f732c: Should use stub run - k=31'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:18.421 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'c23f732c: Should use stub run - k=31' finished. status: PASSED
+Oct-20 12:10:18.421 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Testsuite 'Test Process generate_histogram_kmc' finished. snapshot file: false, skipped tests: false, failed tests: false
+Oct-20 12:10:18.421 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test Process generate_readmers_kmc' from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/generate_readmers_kmc.nf.test'.
+Oct-20 12:10:18.421 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '2f91be22: Should generate k-mer database - k=21'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:21.865 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '2f91be22: Should generate k-mer database - k=21' finished. status: PASSED
+Oct-20 12:10:21.865 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '3e5c61d9: Should generate k-mer database - k=31'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:25.311 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '3e5c61d9: Should generate k-mer database - k=31' finished. status: PASSED
+Oct-20 12:10:25.311 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '80c2b7ae: Should fail on invalid FASTA'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:27.856 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '80c2b7ae: Should fail on invalid FASTA' finished. status: PASSED
+Oct-20 12:10:27.856 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'f80a173d: Should use stub run'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:30.446 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'f80a173d: Should use stub run' finished. status: PASSED
+Oct-20 12:10:30.446 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Testsuite 'Test Process generate_readmers_kmc' finished. snapshot file: false, skipped tests: false, failed tests: false
+Oct-20 12:10:30.446 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test Process get_counts_kmc' from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/get_counts_kmc.nf.test'.
+Oct-20 12:10:30.446 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '56d6987a: Should use stub run - k=21'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:33.020 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '56d6987a: Should use stub run - k=21' finished. status: PASSED
+Oct-20 12:10:33.020 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '33786fdb: Should use stub run - k=31'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:35.571 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '33786fdb: Should use stub run - k=31' finished. status: PASSED
+Oct-20 12:10:35.572 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Testsuite 'Test Process get_counts_kmc' finished. snapshot file: false, skipped tests: false, failed tests: false
+Oct-20 12:10:35.572 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test Process SIMPLIFY_HEADERS' from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/simplify_headers.nf.test'.
+Oct-20 12:10:35.572 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'e38ca34a: Should simplify FASTA headers'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:38.179 [main] DEBUG com.askimed.nf.test.lang.extensions.SnapshotFile - Load snapshots from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/simplify_headers.nf.test.snap'
+Oct-20 12:10:38.191 [main] DEBUG com.askimed.nf.test.lang.extensions.Snapshot - Snapshots 'Should simplify FASTA headers' match.
+Oct-20 12:10:38.191 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'e38ca34a: Should simplify FASTA headers' finished. status: PASSED
+Oct-20 12:10:38.191 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test '606ff8a3: Should handle already simplified headers'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:40.822 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test '606ff8a3: Should handle already simplified headers' finished. status: PASSED
+Oct-20 12:10:40.822 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'ced5c39d: Should preserve sequence count'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:43.445 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'ced5c39d: Should preserve sequence count' finished. status: PASSED
+Oct-20 12:10:43.445 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'e6afcfc8: Should fail on invalid FASTA input'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:45.947 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'e6afcfc8: Should fail on invalid FASTA input' finished. status: PASSED
+Oct-20 12:10:45.947 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'def6a8a0: Should use stub run'. type: com.askimed.nf.test.lang.process.ProcessTest
+Oct-20 12:10:48.508 [main] DEBUG com.askimed.nf.test.lang.extensions.Snapshot - Snapshots 'Should use stub run' match.
+Oct-20 12:10:48.509 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'def6a8a0: Should use stub run' finished. status: PASSED
+Oct-20 12:10:48.509 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Testsuite 'Test Process SIMPLIFY_HEADERS' finished. snapshot file: true, skipped tests: false, failed tests: false
+Oct-20 12:10:48.509 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Running testsuite 'Test pipeline' from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/tests/default.nf.test'.
+Oct-20 12:10:48.509 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Run test 'd315226c: -profile test (basic initialization)'. type: com.askimed.nf.test.lang.pipeline.PipelineTest
+Oct-20 12:10:51.337 [main] DEBUG com.askimed.nf.test.lang.extensions.SnapshotFile - Load snapshots from file '/home/jg2070/Desktop/PhD/crossover/charla_nf/tests/default.nf.test.snap'
+Oct-20 12:10:51.337 [main] DEBUG com.askimed.nf.test.lang.extensions.Snapshot - Snapshot '-profile test (basic initialization)' not found.
+Oct-20 12:10:51.337 [main] DEBUG com.askimed.nf.test.lang.extensions.SnapshotFile - Created snapshot '-profile test (basic initialization)'
+Oct-20 12:10:51.340 [main] DEBUG com.askimed.nf.test.lang.extensions.SnapshotFile - Wrote snapshots to file '/home/jg2070/Desktop/PhD/crossover/charla_nf/tests/default.nf.test.snap'
+Oct-20 12:10:51.340 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Test 'd315226c: -profile test (basic initialization)' finished. status: PASSED
+Oct-20 12:10:51.340 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Testsuite 'Test pipeline' finished. snapshot file: true, skipped tests: false, failed tests: false
+Oct-20 12:10:51.342 [main] INFO  com.askimed.nf.test.core.TestExecutionEngine - Executed 18 tests. 0 tests failed. Done!

@@ -1,0 +1,90 @@
+import groovy.json.JsonGenerator
+import groovy.json.JsonGenerator.Converter
+
+nextflow.enable.dsl=2
+
+// comes from nf-test to store json files
+params.nf_test_output  = ""
+
+// include dependencies
+
+
+// include test process
+include { SIMPLIFY_HEADERS } from '/home/jg2070/Desktop/PhD/crossover/charla_nf/modules/local/tests/../simplify_headers.nf'
+
+// define custom rules for JSON that will be generated.
+def jsonOutput =
+    new JsonGenerator.Options()
+        .addConverter(Path) { value -> value.toAbsolutePath().toString() } // Custom converter for Path. Only filename
+        .build()
+
+def jsonWorkflowOutput = new JsonGenerator.Options().excludeNulls().build()
+
+
+workflow {
+
+    // run dependencies
+    
+
+    // process mapping
+    def input = []
+    
+                // Create an invalid file (not FASTA format)
+                def invalid_fasta = file('test_invalid.fa')
+                invalid_fasta.text = 'This is not a FASTA file\nNo headers here\n'
+
+                input[0] = [
+                    [ id: 'test_invalid' ],
+                    invalid_fasta
+                ]
+                
+    //----
+
+    //run process
+    SIMPLIFY_HEADERS(*input)
+
+    if (SIMPLIFY_HEADERS.output){
+
+        // consumes all named output channels and stores items in a json file
+        for (def name in SIMPLIFY_HEADERS.out.getNames()) {
+            serializeChannel(name, SIMPLIFY_HEADERS.out.getProperty(name), jsonOutput)
+        }	  
+      
+        // consumes all unnamed output channels and stores items in a json file
+        def array = SIMPLIFY_HEADERS.out as Object[]
+        for (def i = 0; i < array.length ; i++) {
+            serializeChannel(i, array[i], jsonOutput)
+        }    	
+
+    }
+  
+}
+
+def serializeChannel(name, channel, jsonOutput) {
+    def _name = name
+    def list = [ ]
+    channel.subscribe(
+        onNext: {
+            list.add(it)
+        },
+        onComplete: {
+              def map = new HashMap()
+              map[_name] = list
+              def filename = "${params.nf_test_output}/output_${_name}.json"
+              new File(filename).text = jsonOutput.toJson(map)		  		
+        } 
+    )
+}
+
+
+workflow.onComplete {
+
+    def result = [
+        success: workflow.success,
+        exitStatus: workflow.exitStatus,
+        errorMessage: workflow.errorMessage,
+        errorReport: workflow.errorReport
+    ]
+    new File("${params.nf_test_output}/workflow.json").text = jsonWorkflowOutput.toJson(result)
+    
+}

@@ -1,0 +1,2 @@
+task_id	hash	native_id	name	status	exit	submit	duration	realtime	%cpu	peak_rss	peak_vmem	rchar	wchar
+1	ad/02234b	231489	FASTQ_TO_FASTA (test_stub)	COMPLETED	0	2025-10-20 12:10:12.550	263ms	120ms	85.4%	9.6 MB	23.2 MB	191.7 KB	11 KB
