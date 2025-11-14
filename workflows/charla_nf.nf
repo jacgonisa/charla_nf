@@ -70,15 +70,20 @@ workflow CHARLA_NF {
         fastq_to_fasta_ch = fastq_ch | FASTQ_TO_FASTA
 
         // Separate the multi-output channel into individual channels
-//  fasta_ch = fastq_to_fasta_ch.fasta       // main FASTA output
-fasta_ch = fastq_to_fasta_ch.fasta.map { meta, files ->
-    // if multiple .fa files are emitted, keep only the non-masked one
-    def non_masked = files.find { !it.name.endsWith("_quality_masked.fa") }
-    tuple(meta, non_masked)
-}
-
+  fasta_ch = fastq_to_fasta_ch.fasta       // main FASTA output
 
     masked_fastq_ch = fastq_to_fasta_ch.masked_fasta   // quality-masked FASTQ
+
+
+//fasta_ch = fastq_to_fasta_ch.fasta.map { meta, files ->
+    // if multiple .fa files are emitted, keep only the non-masked one
+  //  def non_masked = files.find { !it.name.endsWith("_quality_masked.fa") }
+  //     println "[DEBUG] non_masked = $non_masked" 
+  // tuple(meta, non_masked)
+//}
+
+
+//    masked_fastq_ch = fastq_to_fasta_ch.masked_fasta   // quality-masked FASTQ
 
  // Debug outputs
     fasta_ch.view { meta, fasta_file -> "[DEBUG] FASTQ_TO_FASTA → ${meta.id}: $fasta_file" }
@@ -480,8 +485,8 @@ large_indel_analysis_output = LARGE_INDEL_ANALYSIS(
     non_hybrid_analysis_output.output_directory,              // Directory from NON_HYBRID_READS_ANALYSIS
     processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
     ch_reference_genomes.first(),                              // Reference genomes directory
-    ch_parent1_bed.first(),                                    // Parent 1 BED file for chromosome reconstruction
-    ch_parent2_bed.first()                                     // Parent 2 BED file for chromosome reconstruction
+    ch_col_bed.first(),                                    // Parent 1 BED file for chromosome reconstruction
+    ch_ler_bed.first()                                     // Parent 2 BED file for chromosome reconstruction
 )
 
 /*
