@@ -1,4 +1,4 @@
-process generate_readmers_kmc {
+process GENERATE_READMERS_KMC {
     tag "${sample_id}"
     publishDir "${params.outdir}/readmers", mode: 'symlink'
     

@@ -1,4 +1,4 @@
-process get_counts_kmc {
+process GET_COUNTS_KMC {
     tag "${sample_id}"
   cpus params.readmer_cpus ?: 10
   memory params.readmer_memory ?: '100 GB'

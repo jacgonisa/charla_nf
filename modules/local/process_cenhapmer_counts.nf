@@ -1,4 +1,4 @@
-process process_cenhapmer_counts {
+process PROCESS_CENHAPMER_COUNTS {
     tag "process_cenhapmer_counts"
     label 'cenhapmer_postprocessing'
     cpus params.cenhapmer_postproc_cpus ?: 20

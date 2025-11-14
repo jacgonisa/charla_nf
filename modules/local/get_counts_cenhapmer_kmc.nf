@@ -1,4 +1,4 @@
-process get_counts_cenhapmer_kmc {
+process GET_COUNTS_CENHAPMER {
 
     tag "${acc}_${cat}_Chr${chr}"
 

@@ -1,24 +1,102 @@
 #!/usr/bin/env nextflow
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    jacgonisa/charla_nf
+    CHARLA Mapping Pipeline
+    Simplified mapping-only pipeline based on CHARLA_NF (without recombination analysis)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Github : https://github.com/jacgonisa/charla_nf
-----------------------------------------------------------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
+
+nextflow.enable.dsl = 2
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT FUNCTIONS / MODULES / SUBWORKFLOWS / WORKFLOWS
+    VALIDATE & PRINT PARAMETER SUMMARY
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
-include { CHARLA_NF } from './workflows/charla_nf'
-include { PIPELINE_INITIALISATION } from './subworkflows/local/utils_nfcore_charla_nf_pipeline'
-include { PIPELINE_COMPLETION } from './subworkflows/local/utils_nfcore_charla_nf_pipeline'
+
+// Print help message
+def helpMessage() {
+    log.info"""
+    ========================================
+     CHARLA Mapping Pipeline
+    ========================================
+
+    Usage:
+      nextflow run main.nf --input <input.fq.gz> --sample_id <sample_name> [options]
+
+    Required arguments:
+      --input               Path to input FASTQ or FASTA file (long-read sequencing data)
+      --sample_id           Sample identifier (e.g., 'sample1', 'mutant_rep1')
+
+    Optional arguments:
+      --outdir              Output directory (default: 'results')
+      --reference           Reference genome FASTA (default: './Col-0_chr1-5_renamed.fa')
+      --reference_dir       Reference genome directory for mapping (default: './index')
+      --kmer_db             K-mer database directory (default: './merylDB')
+      --kmer_size           K-mer size for analysis (default: 31)
+      --input_format        Input format: 'fastq' or 'fasta' (default: 'fastq')
+
+    Resource options:
+      --max_cpus            Maximum CPUs (default: 20)
+      --max_memory          Maximum memory (default: '100.GB')
+      --max_time            Maximum time (default: '48.h')
+
+    Examples:
+      # Run with FASTQ input
+      nextflow run main.nf --input data/sample1_long_reads.fq.gz --sample_id sample1
+
+      # Run with custom reference
+      nextflow run main.nf --input data/mutant_reads.fq.gz \\
+                           --sample_id mutant1 \\
+                           --reference /path/to/custom_ref.fa
+    """.stripIndent()
+}
+
+// Show help message
+if (params.help) {
+    helpMessage()
+    exit 0
+}
+
+// Validate required parameters
+if (!params.input) {
+    log.error "ERROR: --input parameter is required"
+    helpMessage()
+    exit 1
+}
+
+if (!params.sample_id) {
+    log.error "ERROR: --sample_id parameter is required"
+    helpMessage()
+    exit 1
+}
+
+log.info """
+========================================
+ CHARLA Mapping Pipeline
+========================================
+Input file       : ${params.input}
+Sample ID        : ${params.sample_id}
+Input format     : ${params.input_format}
+Reference genome : ${params.reference}
+Reference dir    : ${params.reference_dir}
+K-mer database   : ${params.kmer_db}
+K-mer size       : ${params.kmer_size}
+Output directory : ${params.outdir}
+========================================
+"""
 
 /*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    IMPORT WORKFLOWS
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 
+include { CHARLA_MAPPING } from './workflows/charla_mapping'
 
+/*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -26,82 +104,25 @@ include { PIPELINE_COMPLETION } from './subworkflows/local/utils_nfcore_charla_n
 
 workflow {
 
-    main:
-    //
+    // Create input channel
+    ch_input = Channel.fromPath(params.input, checkIfExists: true)
+        .map { file ->
+            def meta = [id: params.sample_id]
+            tuple(meta, file)
+        }
 
-log.info "DEBUG: Selected profile: ${workflow.profile}"
-log.info "DEBUG: Configured output dir: ${params.outdir}"
-//log.info "DEBUG: Configured executor: ${workflow.config.process.executor ?: 'NOT SET'}"
-//log.info "DEBUG: Configured maxForks: ${workflow.config.process.maxForks ?: 'NOT SET'}"
+    // Create reference channels
+    ch_reference = Channel.fromPath(params.reference, checkIfExists: true)
+    ch_reference_dir = Channel.fromPath(params.reference_dir, checkIfExists: true, type: 'dir')
+    ch_kmer_db = Channel.fromPath(params.kmer_db, checkIfExists: true, type: 'dir')
 
-    // SUBWORKFLOW: Run initialisation tasks
-    //
-    PIPELINE_INITIALISATION (
-        params.version,
-        params.validate_params,
-        params.monochrome_logs,
-        args,
-	[],
-        params.outdir,
-        params.reads,
-	params.sample_id,
-       params.cenhapmer_db_dir,
-       params.input_format   
+    // Run mapping workflow
+    CHARLA_MAPPING(
+        ch_input,
+        ch_reference,
+        ch_reference_dir,
+        ch_kmer_db
     )
-
-// Add these two lines immediately after the PIPELINE_INITIALISATION call
-    log.info "DEBUG: PIPELINE_INITIALISATION subworkflow has finished."
-    // log.info "DEBUG: Is input_tuple channel empty? ${PIPELINE_INITIALISATION.out.input_tuple.isEmpty()}" // <--- REMOVE .getVal()
-    //
-
-
-
-// --- ADD: Create combinations of ACC, CAT, CHR ---
-ch_kmc_combinations = Channel
-    .from(['Col', 'Ler'])
-    .flatMap { acc -> 
-        ['CEN', 'ARMS'].collectMany { cat -> 
-            (1..5).collect { chr -> 
-                [acc, cat, chr] 
-            } 
-        } 
-    }
-// Add debug to see what combinations are created
-ch_kmc_combinations.view { "KMC combinations: $it" }
-// --- END ADD ---
-
-
-
-    // WORKFLOW: Run main workflow
-    //
-    CHARLA_NF (
-        PIPELINE_INITIALISATION.out.input_tuple,
-            params.cenhapmer_db_dir,
-                  ch_kmc_combinations // <--- ADD this as a third input to CHARLA_NF
-    )
-
-
-// --- ADD THE FOLLOWING LINES ---
-// Mix the two output channels from CHARLA_NF into a single channel
-// This channel will contain all .kmc_pre and .kmc_suf files as they are produced
-    ch_all_kmers = CHARLA_NF.out.kmc_pre.mix(CHARLA_NF.out.kmc_suf)
-// --- END ADDED LINES ---
-
-//
-// SUBWORKFLOW: Run completion tasks
-//
-PIPELINE_COMPLETION (
-    params.email,
-    params.email_on_fail,
-    params.plaintext_email,
-    params.outdir,
-    params.monochrome_logs,
-    params.hook_url,
-    ch_all_kmers // <--- CHANGE THIS LINE to pass the new mixed channel
-)
-
-
-
 }
 
 /*

@@ -1,345 +1,380 @@
-# CHARLA: Centromeric Haplotype Analysis of Recombination using Long-reads of Arabidopsis
+# CHARLA Mapping Pipeline
 
-[![Nextflow](https://img.shields.io/badge/version-%E2%89%A524.10.5-green?style=flat&logo=nextflow&logoColor=white&color=%230DC09D&link=https%3A%2F%2Fnextflow.io)](https://www.nextflow.io/)
-[![nf-core template version](https://img.shields.io/badge/nf--core_template-3.3.2-green?style=flat&logo=nfcore&logoColor=white&color=%2324B064&link=https%3A%2F%2Fnf-co.re)](https://github.com/nf-core/tools/releases/tag/3.3.2)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
-[![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
-[![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
-[![Launch on Seqera Platform](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Seqera%20Platform-%234256e7)](https://cloud.seqera.io/launch?pipeline=https://github.com/jacgonisa/charla_nf)
+A simplified mapping-only pipeline based on [CHARLA_NF](https://github.com/jacgonisa/charla_nf) for analyzing long-read sequencing data with **single-parent k-mer classification** but without recombination analysis.
 
-![][logo]
+## Overview
 
-[logo]: https://github.com/jacgonisa/charla_nf/blob/master/images/CHARLA_image.png
+This pipeline runs four key analysis modules from CHARLA_NF with **single-parent mode**:
 
-## Introduction
+1. **K-mer Profiling & Classification** - Classify reads based on k-mer profiles against a single reference
+2. **NON_HYBRID_READS_ANALYSIS** - Classify and map reads based on k-mer dominance
+3. **LARGE_INDEL_ANALYSIS** - Extract and analyze large indels (>50bp), identify satellite structures
+4. **MAFFT_ALIGN** - Multiple sequence alignment of satellite blocks
+5. **ANALYZE_MAFFT_ALIGNMENT** - Analyze alignment results and update satellite analysis
 
-**CHARLA** (**C**entromeric **H**aplotype **A**nalysis of **R**ecombination using **L**ong-reads of **A**rabidopsis) is a bioinformatics pipeline designed to detect and analyze crossover events in *Arabidopsis thaliana* hybrid pollen using long-read sequencing data (Oxford Nanopore or PacBio). The pipeline performs k-mer-based haplotype profiling to identify recombination events, including crossovers in centromeric regions, and generates comprehensive visualizations and analysis reports.
+Perfect for analyzing structural variations, indels, and satellite DNA in long-read sequencing data using **k-mer-based read classification** without the overhead of crossover/recombination detection between two parents.
 
-### Pipeline Overview
-
-CHARLA uses a k-mer profiling approach to distinguish parental haplotypes in F1 hybrid reads. The pipeline:
-
-1. **Processes sequencing data** - Converts FASTQ to FASTA, simplifies headers, and optionally performs quality-based masking
-2. **Profiles read k-mers (readmers)** - Generates k-mer databases from input reads using KMC3
-3. **Profiles haplotype-specific k-mers (cenhapmers)** - Counts parental-specific k-mers in each read using pre-computed databases
-4. **Identifies hybrid reads** - Combines profiles to detect reads with both parental haplotypes (potential crossover reads)
-5. **Segments reads** - Identifies crossover breakpoints and segments reads into arm and centromeric regions
-6. **Maps and validates** - Aligns segmented reads to reference genomes using minimap2
-7. **Visualizes crossovers** - Generates genome-wide crossover maps and coverage plots
-8. **Analyzes non-hybrid reads** - Performs indel analysis on parental-only reads
-
-### Workflow Diagram
+## Pipeline Flow
 
 ```
-FASTQ/FASTA Input
-      │
-      ├─→ [Optional] FASTQ_TO_FASTA (with quality masking)
-      │
-      ├─→ SIMPLIFY_HEADERS
-      │
-      ├────────────────────────────────┬──────────────────────────────────┐
-      │                                │                                  │
-      ▼                                ▼                                  ▼
-Branch A: READMER                Branch B: CENHAPMER            Branch C: NON-HYBRID
-Profiling                        Profiling                       Analysis
-      │                                │                                  │
-      ├─→ generate_readmers_kmc        ├─→ get_counts_cenhapmer_kmc     │
-      ├─→ generate_histogram_kmc       ├─→ process_cenhapmer_counts     │
-      └─→ get_counts_kmc               │                                 │
-                                       │                                 │
-                    ┌──────────────────┴──────────────────┐              │
-                    ▼                                      ▼              │
-            COMBINE_HYBRID_PROFILES              NON_HYBRID_READS_ANALYSIS
-                    │                                                     │
-                    ▼                                                     ▼
-            CURATE_HYBRID_PROFILES                        Indel Analysis & Mapping
-                    │
-                    ▼
-              SEGMENT_READS
-                    │
-                    ├─→ MAPPING_ANALYSIS (minimap2)
-                    │
-                    └─→ PLOT_CROSSOVER_MAP
-                              │
-                              ▼
-                    Crossover Maps & Coverage Plots
+Long-read FASTQ/FASTA Input
+    ↓
+FASTQ → FASTA conversion (if needed)
+    ↓
+Header simplification
+    ↓
+K-mer generation (KMC)
+    └─ Generate k-mers from each read
+    ↓
+Cenhapmer k-mer counting (against single-parent merylDB)
+    └─ Count k-mers matching reference ARMS/CEN regions
+    ↓
+K-mer matrix processing
+    └─ Create TSV matrix: read_id × k-mer_counts
+    ↓
+NON_HYBRID_READS_ANALYSIS
+    ├─ Read classification (based on k-mer dominance)
+    │   └─ Assign reads: "Col_ARMS_Chr1", "Col_CEN_Chr2", etc.
+    ├─ Sequence extraction (seqkit)
+    ├─ Mapping to reference (minimap2)
+    └─ Indel analysis (from BAM files)
+    ↓
+LARGE_INDEL_ANALYSIS
+    ├─ Extract large indels (>50bp)
+    ├─ Map indels to genome (PAF format)
+    ├─ Analyze satellite structures (178bp repeats)
+    └─ Extract satellite blocks (FASTA)
+    ↓
+MAFFT_ALIGN
+    └─ Multiple sequence alignment of satellite blocks
+    ↓
+ANALYZE_MAFFT_ALIGNMENT
+    └─ Update satellite analysis with alignment metrics
 ```
+
+## Single-Parent K-mer Classification
+
+This pipeline performs **k-mer-based read classification** against a **single reference genome** (e.g., Col-0):
+
+1. **K-mer counting**: For each read, count k-mers matching reference ARMS/CEN regions
+2. **Classification**: Assign reads to chromosome regions based on k-mer dominance
+3. **Mapping**: Map classified reads to reference genome with minimap2
+4. **Structural analysis**: Identify indels and satellite structures
+
+Unlike full CHARLA_NF (which detects crossovers between two parents), this pipeline:
+- ✅ Keeps k-mer-based read classification
+- ✅ Analyzes structural variants and indels
+- ✅ Studies satellite DNA organization
+- ❌ Does NOT detect recombination/crossovers between parents
+- ❌ Does NOT require two-parent k-mer databases
+
+## Requirements
+
+- Nextflow >= 23.04.0
+- Singularity or Docker
+- Reference genome (FASTA)
+- K-mer database (merylDB format)
+- Reference index directory
 
 ## Quick Start
 
-### Prerequisites
+### 1. Setup
 
-- **Nextflow** >= 24.10.5 ([Installation guide](https://www.nextflow.io/docs/latest/getstarted.html))
-- **Container system**: Singularity (default), Docker, Conda, or Apptainer
-- **Pre-computed cenhapmer databases**: K-mer databases for parental haplotypes (Col-0 and Ler-0)
-- **Reference genomes**: Indexed reference genomes for both parental accessions
-- **BED files**: Genomic feature annotations for Col-0 and Ler-0
-
-### Test the Pipeline
+Make sure you have your reference genome, index, and k-mer database ready:
 
 ```bash
-nextflow run jacgonisa/charla_nf -profile test,singularity
+cd /path/to/charla_mapping
+
+# Link or copy your reference files
+ln -s /path/to/reference.fa ./
+ln -s /path/to/index ./
+ln -s /path/to/merylDB ./
 ```
 
-## Usage
+### 2. Run the pipeline
 
-### Basic Command
-
+**Basic usage:**
 ```bash
-nextflow run jacgonisa/charla_nf \
-    --reads <input.fastq|input.fasta> \
-    --sample_id <sample_name> \
-    --input_format <fastq|fasta> \
-    --cenhapmer_db_dir <path/to/kmer_databases> \
-    --reference_genomes_dir <path/to/references> \
-    --col_bed_file <path/to/Col-0.bed> \
-    --ler_bed_file <path/to/Ler-0.bed> \
-    --outdir <output_directory> \
-    --kmer_size <21|31> \
+nextflow run main.nf \
+    --input data/long_reads.fq.gz \
+    --sample_id sample1 \
+    --outdir results \
     -profile singularity
 ```
 
-### Required Parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `--reads` | Path to input FASTQ or FASTA file containing sequencing reads |
-| `--sample_id` | Unique identifier for the sample |
-| `--input_format` | Input file format: `fastq` or `fasta` |
-| `--cenhapmer_db_dir` | Directory containing pre-computed KMC databases for parental haplotypes |
-| `--reference_genomes_dir` | Directory containing reference genome FASTA files for both parents |
-| `--col_bed_file` | BED file with genomic annotations for Col-0 reference |
-| `--ler_bed_file` | BED file with genomic annotations for Ler-0 reference |
-| `--outdir` | Directory for output files |
-| `--kmer_size` | K-mer size for analysis (typically 21 or 31) |
-
-### Optional Parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `--do_quality_masking` | `false` | Enable quality-based masking of low-quality bases in FASTQ files |
-| `--readmer_cutoff` | `10` | Minimum k-mer count threshold for readmer profiling |
-| `--min_count` | `25` | Minimum k-mer count for hybrid profile combination |
-| `--threshold` | `50` | Threshold for read segmentation and filtering |
-| `--readmer_cpus` | `20` | Number of CPUs for readmer profiling |
-| `--readmer_memory` | `100 GB` | Memory allocation for readmer profiling |
-| `--cenhapmer_cpus` | `1` | Number of CPUs per cenhapmer task (parallel tasks) |
-| `--cenhapmer_memory` | `50 GB` | Memory allocation for cenhapmer profiling |
-
-### Example Commands
-
-#### Example 1: FASTQ Input with Quality Masking
-
+**With custom reference:**
 ```bash
-nextflow run jacgonisa/charla_nf \
-    --reads data/ColLer_F1_pollen_minq20.fq \
-    --sample_id ColLer_F1_pollen_minq20 \
-    --input_format fastq \
-    --cenhapmer_db_dir /path/to/cenhapmers/k21 \
-    --reference_genomes_dir /path/to/references \
-    --col_bed_file annotations/Col-0_renamed.bed \
-    --ler_bed_file annotations/Ler-0_renamed.bed \
-    --outdir results/pollen_analysis \
-    --kmer_size 21 \
-    --do_quality_masking true \
-    --readmer_cutoff 10 \
-    --min_count 25 \
-    -profile singularity \
-    -with-trace trace.txt \
-    -with-report report.html \
-    -with-timeline timeline.html \
-    -resume
+nextflow run main.nf \
+    --input data/mutant_reads.fq.gz \
+    --sample_id mutant1 \
+    --reference /path/to/my_reference.fa \
+    --reference_dir /path/to/my_index \
+    --kmer_db /path/to/my_merylDB \
+    --outdir results_mutant1 \
+    -profile singularity
 ```
 
-#### Example 2: FASTA Input (Pre-processed Reads)
+### 3. Resume a failed run
 
 ```bash
-nextflow run jacgonisa/charla_nf \
-    --reads data/simulated_reads.fasta \
-    --sample_id simulation_k31 \
-    --input_format fasta \
-    --cenhapmer_db_dir /path/to/cenhapmers/k31 \
-    --reference_genomes_dir /path/to/references \
-    --col_bed_file annotations/Col-0_renamed.bed \
-    --ler_bed_file annotations/Ler-0_renamed.bed \
-    --outdir results/simulation \
-    --kmer_size 31 \
+nextflow run main.nf \
+    --input data/long_reads.fq.gz \
+    --sample_id sample1 \
     -profile singularity \
     -resume
 ```
 
-### Running with Different Profiles
+## Parameters
 
-CHARLA supports multiple execution profiles:
+### Required
+- `--input` - Path to input FASTQ or FASTA file (long-read sequencing data)
+- `--sample_id` - Sample identifier (e.g., 'sample1', 'mutant_rep1')
 
-```bash
-# Singularity (default, recommended for HPC)
--profile singularity
+### Optional
+- `--outdir` - Output directory (default: 'results')
+- `--reference` - Reference genome FASTA (default: './Col-0_chr1-5_renamed.fa')
+- `--reference_dir` - Reference directory for mapping (default: './index')
+- `--kmer_db` - K-mer database directory (default: './merylDB')
+- `--kmer_size` - K-mer size (default: 31)
+- `--input_format` - 'fastq' or 'fasta' (default: 'fastq')
+- `--parent1_bed` - BED file for chromosomal features (optional)
+- `--parent2_bed` - BED file for second parent/reference (optional)
 
-# Docker (for local machines)
--profile docker
+### Resource Options
+- `--max_cpus` - Maximum CPUs (default: 20)
+- `--max_memory` - Maximum memory (default: '100.GB')
+- `--max_time` - Maximum time (default: '48.h')
 
-# Conda (no containers)
--profile conda
-
-# Local execution (for testing)
--profile local
-
-# HPC cluster with SLURM
--profile cluster
-```
+Module-specific resources can be adjusted in `nextflow.config`:
+- `--readmer_cpus`, `--readmer_memory`, `--readmer_time`
+- `--cenhapmer_cpus`, `--cenhapmer_memory`, `--cenhapmer_time`
+- `--nonhybrid_cpus`, `--nonhybrid_memory`, `--nonhybrid_time`
+- `--large_indel_cpus`, `--large_indel_memory`, `--large_indel_time`
 
 ## Output Structure
 
-The pipeline generates organized output in the specified `--outdir`:
-
 ```
 results/
-├── data/                          # Pre-processed FASTA files
-├── readmers/                      # Read k-mer profiling results
-│   ├── *.kmc_pre                  # KMC database files
-│   ├── *.kmc_suf
-│   ├── *.histo                    # K-mer frequency histograms
-│   └── *.counts.txt               # Per-read k-mer counts
-├── processed_cenhapmers/          # Processed cenhapmer matrices
-│   └── *.cenhapmer_matrix.tsv     # K-mer count matrix per read
-├── hybrid_profiles/               # Hybrid read identification
-│   ├── *.hybrid_profiles.txt      # Combined profiles
-│   ├── *.final_table.txt          # Curated hybrid reads
-│   └── *.ultracurated_table.txt   # High-confidence hybrids
-├── read_segments/                 # Segmented reads and BED files
-│   ├── *.ARMS.segments.fa         # Arm region segments
-│   ├── *.CEN.segments.fa          # Centromeric segments
-│   ├── *.ARMS.bed                 # Arm coordinates
-│   └── *.CEN.bed                  # Centromere coordinates
-├── mapping_analysis/              # Minimap2 alignment results
-│   ├── *.paf                      # PAF alignment files
-│   ├── *.cowidth.txt              # Crossover width analysis
-│   └── plots/                     # Mapping visualizations
-├── crossover_plots/               # Final crossover maps
-│   ├── *.crossover_map.pdf        # Genome-wide crossover visualization
-│   └── coverage_data/             # Coverage statistics
-├── nonhybrid_analysis/            # Non-hybrid read analysis
-│   ├── read_lists/                # Parental read identifiers
-│   ├── sequences/                 # Extracted FASTA sequences
-│   ├── bam_files/                 # Aligned BAM files
-│   └── indel_analysis/            # Indel detection results
-└── pipeline_info/                 # Execution reports
-    ├── execution_report.html
+├── fastq_to_fasta/           # FASTA conversion (if input was FASTQ)
+├── simplify_headers/         # Simplified FASTA
+├── generate_readmers_kmc/    # K-mer generation
+├── get_counts_cenhapmer/     # K-mer counts
+├── process_cenhapmer_counts/ # K-mer matrix
+├── non_hybrid_analysis/      # Non-hybrid reads analysis
+│   └── <sample_id>_nonhybrid/
+│       ├── read_lists/       # Read classification lists
+│       ├── sequences/        # Extracted FASTA sequences
+│       ├── bam/             # Mapped BAM files
+│       └── indel_analysis.tsv
+├── large_indel_analysis/     # Large indel analysis
+│   └── <sample_id>_large_indels/
+│       ├── large_indels_catalog.tsv
+│       ├── indel_sequences.fa
+│       ├── indel_mappings.paf
+│       ├── genomic_plots/
+│       ├── satellite_blocks.fa
+│       ├── satellite_analysis.tsv
+│       └── msa_results/
+│           ├── <sample_id>_satellite_blocks.aln
+│           ├── <sample_id>_satellite_analysis_updated.tsv
+│           └── msa_visualization.png
+└── pipeline_info/            # Execution reports
     ├── execution_timeline.html
-    └── execution_trace.txt
+    ├── execution_report.html
+    ├── execution_trace.txt
+    └── pipeline_dag.svg
 ```
 
-## Key Features
+## Key Output Files
 
-### 1. Quality-Based Masking
-When `--do_quality_masking true` is specified, low-quality bases in FASTQ files are masked (converted to 'N') before k-mer profiling, improving the accuracy of haplotype assignment.
+### Non-hybrid Reads Analysis
+- `read_lists/*.txt` - Lists of reads for each haplotype/category
+- `sequences/*.fa` - Extracted sequences per category
+- `bam/*.bam` - Mapped reads (BAM format)
+- `indel_analysis.tsv` - Summary statistics of indels
 
-### 2. Parallel Cenhapmer Processing
-The pipeline efficiently processes multiple cenhapmer databases in parallel, significantly reducing runtime for large-scale analyses.
+### Large Indel Analysis
+- `large_indels_catalog.tsv` - Catalog of all indels >50bp
+  - Columns: indel_id, type, size, chromosome, position, sequence, etc.
+- `indel_sequences.fa` - FASTA file with indel sequences
+- `indel_mappings.paf` - Genomic positions of indels (PAF format)
+- `satellite_blocks.fa` - Extracted satellite block sequences
+- `satellite_analysis.tsv` - Satellite structure statistics
 
-### 3. Hybrid Read Detection
-Uses a sophisticated k-mer profiling approach to identify reads containing both parental haplotypes, indicating potential crossover events.
+### MAFFT Alignment
+- `msa_results/*.aln` - Multiple sequence alignment of satellite blocks
+- `*_satellite_analysis_updated.tsv` - Satellite analysis enriched with alignment metrics
+- `msa_visualization.png` - Visual representation of alignment (optional)
 
-### 4. Crossover Localization
-Segments hybrid reads to precisely identify crossover breakpoints at k-mer resolution, distinguishing arm and centromeric crossovers.
+## Use Cases
 
-### 5. Comprehensive Validation
-Validates putative crossovers through minimap2 alignment to parental reference genomes, filtering out false positives.
+This pipeline is suitable for:
 
-### 6. Non-Hybrid Analysis
-Performs separate analysis of parental-only reads, including indel detection and structural variant analysis.
+- Analyzing structural variations in mutant vs wild-type comparisons
+- Detecting and characterizing large indels (>50bp) in long-read data
+- Studying satellite DNA organization and variation
+- Mapping long reads without crossover detection overhead
+- General long-read sequencing analysis focusing on structural variants
 
-## Performance Optimization
+## Notes
 
-### Resource Configuration
+### BED Files (Optional)
 
-The pipeline automatically configures resources based on the specified parameters. For optimal performance:
+BED files for chromosomal features are optional. If provided, they enable:
+- Better genomic context visualization
+- Enhanced plots showing indel positions on chromosomes
 
-**For FASTQ input with masking:**
-- `--readmer_cpus 20` (for k-mer database generation)
-- `--readmer_memory 100GB`
-- `--cenhapmer_cpus 1` with high parallelization
+If not provided, analysis proceeds without genomic context plots.
 
-**For large datasets (>10 million reads):**
-- Increase `--cenhapmer_memory` to 100GB
-- Use `--readmer_cutoff` to filter low-abundance k-mers
-- Consider running on HPC with `-profile cluster`
+### K-mer Database (cenhapmer_db_dir)
 
-### Resuming Failed Runs
+**IMPORTANT:** This pipeline uses **single-parent k-mer classification**. The k-mer database directory must contain **KMC format** k-mer databases for:
 
-Nextflow's `-resume` flag allows you to continue from the last successful step:
-
-```bash
-nextflow run jacgonisa/charla_nf ... -resume
+**Required KMC database files (for k=31, accession=Col-0):**
 ```
+unique_Col-0_ARMS_Chr1_k31.kmc_pre
+unique_Col-0_ARMS_Chr1_k31.kmc_suf
+unique_Col-0_ARMS_Chr2_k31.kmc_pre
+unique_Col-0_ARMS_Chr2_k31.kmc_suf
+... (through Chr5)
+unique_Col-0_CEN_Chr1_k31.kmc_pre
+unique_Col-0_CEN_Chr1_k31.kmc_suf
+unique_Col-0_CEN_Chr2_k31.kmc_pre
+unique_Col-0_CEN_Chr2_k31.kmc_suf
+... (through Chr5)
+```
+
+Replace "Col-0" with your accession name and adjust k-mer size if using different parameters.
+
+**K-mer Classification Logic:**
+1. Reads are classified based on k-mer counts matching your reference
+2. A read is assigned to a haplotype (e.g., Col_ARMS_Chr1) if:
+   - It has >50 k-mers matching one haplotype
+   - AND other haplotype k-mer counts sum to ≤10
+3. Reads not matching these criteria are excluded (no clear classification)
+
+**For single-parent analysis (e.g., Col-0 only):**
+- Generate KMC k-mer databases for ARMS and CEN regions of your reference genome
+- Reads will be classified as "matching Col ARMS/CEN regions" or "not matching"
+- No second parent k-mers needed (unlike full CHARLA_NF two-parent pipeline)
 
 ## Troubleshooting
 
-### Common Issues
+### Container Issues
+If using Singularity, ensure it's available:
+```bash
+singularity --version
+```
 
-**Issue:** Out of memory errors during readmer profiling
-- **Solution:** Increase `--readmer_memory` or use `--readmer_cutoff` to reduce k-mer space
+For Docker:
+```bash
+nextflow run main.nf --input data.fq.gz --sample_id test -profile docker
+```
 
-**Issue:** No hybrid reads detected
-- **Solution:** Check k-mer database quality, verify input is from F1 hybrid, adjust `--min_count` threshold
+### Memory Issues
+For large datasets, increase memory allocation:
+```bash
+nextflow run main.nf \
+    --input data.fq.gz \
+    --sample_id test \
+    --readmer_memory '150 GB' \
+    --cenhapmer_memory '80 GB'
+```
 
-**Issue:** Container/Singularity errors
-- **Solution:** Ensure container cache directory has sufficient space: `export NXF_SINGULARITY_CACHEDIR=/path/to/cache`
+### Check Pipeline DAG
+Generate the workflow diagram:
+```bash
+nextflow run main.nf --help
+# DAG will be in results/pipeline_info/pipeline_dag.svg
+```
 
-### Debug Mode
+## Example: Arabidopsis Data
 
-Enable detailed logging:
+For Arabidopsis samples with Col-0 reference:
 
 ```bash
-nextflow run jacgonisa/charla_nf ... -profile debug
+# Run analysis
+nextflow run main.nf \
+    --input data/sample_long_reads.fq.gz \
+    --sample_id sample1 \
+    --reference Col-0_chr1-5_renamed.fa \
+    --reference_dir index/ \
+    --kmer_db merylDB/ \
+    -profile singularity
 ```
+
+## Generating K-mer Database for Single-Parent Analysis
+
+To generate a cenhapmer k-mer database for single-parent analysis, you need **KMC format** k-mer databases for:
+1. **ARMS regions** (chromosome arms) for each chromosome
+2. **CEN regions** (centromeres) for each chromosome
+
+### Example: Creating Col-0 k-mer database with KMC
+
+```bash
+# Prerequisites: KMC installed, BED files defining ARMS and CEN regions
+REFERENCE="Col-0_chr1-5.fa"
+ACCESSION="Col-0"
+KMER_SIZE=31
+OUTPUT_DIR="cenhapmer_db"
+
+mkdir -p ${OUTPUT_DIR}
+
+# For each chromosome (1-5)
+for CHR in {1..5}; do
+    # Extract ARMS region sequence
+    bedtools getfasta -fi ${REFERENCE} -bed ${ACCESSION}_ARMS_Chr${CHR}.bed \
+        -fo ${ACCESSION}_ARMS_Chr${CHR}.fa
+
+    # Extract CEN region sequence
+    bedtools getfasta -fi ${REFERENCE} -bed ${ACCESSION}_CEN_Chr${CHR}.bed \
+        -fo ${ACCESSION}_CEN_Chr${CHR}.fa
+
+    # Generate k-mer databases with KMC
+    # ARMS regions
+    kmc -k${KMER_SIZE} -m16 -ci1 -cs1000000 -t4 \
+        ${ACCESSION}_ARMS_Chr${CHR}.fa \
+        ${OUTPUT_DIR}/unique_${ACCESSION}_ARMS_Chr${CHR}_k${KMER_SIZE} \
+        tmp_kmc/
+
+    # CEN regions
+    kmc -k${KMER_SIZE} -m16 -ci1 -cs1000000 -t4 \
+        ${ACCESSION}_CEN_Chr${CHR}.fa \
+        ${OUTPUT_DIR}/unique_${ACCESSION}_CEN_Chr${CHR}_k${KMER_SIZE} \
+        tmp_kmc/
+done
+
+# Clean up temporary files
+rm -rf tmp_kmc/
+rm ${ACCESSION}_*.fa
+
+echo "K-mer database created in ${OUTPUT_DIR}/"
+```
+
+**Expected output files:**
+```
+cenhapmer_db/
+├── unique_Col-0_ARMS_Chr1_k31.kmc_pre
+├── unique_Col-0_ARMS_Chr1_k31.kmc_suf
+├── unique_Col-0_ARMS_Chr2_k31.kmc_pre
+├── unique_Col-0_ARMS_Chr2_k31.kmc_suf
+... (through Chr5)
+├── unique_Col-0_CEN_Chr1_k31.kmc_pre
+├── unique_Col-0_CEN_Chr1_k31.kmc_suf
+... (through Chr5)
+```
+
+**Note:**
+- You may already have these k-mer databases if you've run CHARLA_NF before
+- The pipeline expects files named exactly as: `unique_{accession}_{region}_Chr{N}_k{size}.kmc_*`
+- For single-parent mode, you only need one accession (e.g., Col-0), not two
 
 ## Credits
 
-CHARLA was originally developed by **Jacob González Isa** at the University of Cambridge.
+This pipeline is based on [CHARLA_NF](https://github.com/jacgonisa/charla_nf) by jacgonisa.
 
-### Contributors
-
-We thank the following people for their extensive assistance in the development of this pipeline:
-
-- **Namil Son** - Algorithm development and testing
-- **Matthew Naish** - Biological validation and experimental design
-
-## Citations
-
-If you use CHARLA for your research, please cite:
-
-> González Isa, J., Son, N., Naish, M., et al. (2025). CHARLA: A Nextflow pipeline for centromeric haplotype analysis of recombination using long-read sequencing. *In preparation*.
-
-### Tools Used
-
-This pipeline uses the following tools:
-
-- **Nextflow** - Workflow management (Di Tommaso et al., 2017)
-- **KMC3** - K-mer counting (Kokot et al., 2017)
-- **minimap2** - Read alignment (Li, 2018)
-- **seqkit** - Sequence manipulation (Shen et al., 2016)
-- Custom Rust implementations for performance-critical steps
-
-### nf-core
-
-This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/main/LICENSE).
-
-> **The nf-core framework for community-curated bioinformatics pipelines.**
->
-> Philip Ewels, Alexander Peltzer, Sven Fillinger, Harshil Patel, Johannes Alneberg, Andreas Wilm, Maxime Ulysse Garcia, Paolo Di Tommaso & Sven Nahnsen.
->
-> _Nat Biotechnol._ 2020 Feb 13. doi: [10.1038/s41587-020-0439-x](https://dx.doi.org/10.1038/s41587-020-0439-x).
-
-## Contributions and Support
-
-If you would like to contribute to this pipeline, please see the [contributing guidelines](.github/CONTRIBUTING.md).
-
-For support and questions:
-- **Issues:** [GitHub Issues](https://github.com/jacgonisa/charla_nf/issues)
-- **Email:** jg2070@cam.ac.uk
+Original publication: [Add citation when available]
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Same as CHARLA_NF

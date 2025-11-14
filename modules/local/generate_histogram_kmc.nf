@@ -1,4 +1,4 @@
-process generate_histogram_kmc {
+process GENERATE_HISTOGRAM_KMC {
     tag "${sample_id}"
 
     input:
