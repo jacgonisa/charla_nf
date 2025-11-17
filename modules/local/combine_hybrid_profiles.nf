@@ -27,6 +27,7 @@ process COMBINE_HYBRID_PROFILES {
     """
     # Debugging: Print input paths before running Rust binary
     echo "DEBUG: input_dir_of_txt_files = ${input_dir_of_txt_files}"
+    ls -l ${input_dir_of_txt_files}   
     echo "DEBUG: kmer_tsv = ${kmer_tsv}"
     echo "DEBUG: qc_file = ${qc_file}"
     echo "DEBUG: rust_binary = ${rust_binary}"

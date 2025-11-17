@@ -267,14 +267,14 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
             "${workflow.launchDir}/${outdir}/cenhapmers"
         }
 
-    ch_script_file = Channel.fromPath("${baseDir}/rust/kmer_processor/target/release/kmer_processor")
+  //  ch_script_file = Channel.fromPath("${baseDir}/rust/kmer_processor/target/release/kmer_processor")
     ch_fasta_for_postproc = processed_fasta_files.map { meta, fasta -> fasta }.first()
     
     // Now, call process_cenhapmer_counts with the directory path
     process_cenhapmer_counts_output = process_cenhapmer_counts(
-        ch_cenhapmer_dir_path,    // Directory path (e.g., "results/cenhapmers")
+        all_cenhapmer_done,    // Directory path (e.g., "results/cenhapmers")
         ch_fasta_for_postproc,    // The main FASTA file for seqkit stats
-        ch_script_file,           // The Python script file
+     //   ch_script_file,          // The Python script file
         params.sample_id          // Use sample_id as the output_name for the final matrix
     )  
 
@@ -283,36 +283,58 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         Branch C: COMBINE HYBRID PROFILES
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     */
-    // 1. Validate index_dir parameter
-    if (!params.index_dir) {
-        error "ERROR: The --index_dir parameter must be provided for hybrid profile combination."
-    }
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    Branch C: COMBINE HYBRID PROFILES
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
 
-    def outdir_normalized = params.outdir.replaceAll('/$', '')  // Remove trailing slash
-    ch_input_dir_for_hybrid = Channel.value("${workflow.launchDir}/${outdir_normalized}/cenhapmers")
-    ch_kmer_tsv = process_cenhapmer_counts_output.kmer_matrix
-    ch_qc_file = get_counts_kmc.out
-    ch_rust_binary = Channel.fromPath("${baseDir}/rust/combine_segment_fast_indixes/target/release/hybrid_profile_toolkit")
-    
-    combine_hybrid_profiles_output = COMBINE_HYBRID_PROFILES(
-        ch_input_dir_for_hybrid,
-        ch_kmer_tsv,
-        ch_qc_file,
-        params.min_count              
-    )
+// 1. Validate index_dir parameter
+if (!params.index_dir) {
+    error "ERROR: The --index_dir parameter must be provided for hybrid profile combination."
+}
 
+// Remove trailing slash from outdir
+def outdir_clean = params.outdir.replaceAll('/$', '')
 
-    // ADD THE CLEANUP RIGHT HERE - after COMBINE_HYBRID_PROFILES completes
-    combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
-        def outdir_clean = params.outdir.replaceAll('/$', '')  // Remove trailing slash
-        def cenhapmer_dir = file("${workflow.launchDir}/${outdir_clean}/cenhapmers")
-        if (cenhapmer_dir.exists()) {
-            log.info "🧹 Cleaning up entire cenhapmers directory to save disk space..."
-            if (cenhapmer_dir.deleteDir()) {
-                log.info "✅ Deleted cenhapmers directory"
-            }
+// Build correct path to cenhapmers directory
+// If outdir is absolute, use it directly.
+// If relative, prepend workflow.launchDir.
+def cenhapmer_dir_path = params.outdir.startsWith('/') ?
+    "${outdir_clean}/cenhapmers" :
+    "${workflow.launchDir}/${outdir_clean}/cenhapmers"
+
+log.info "📁 Cenhapmer input directory resolved to: ${cenhapmer_dir_path}"
+
+// Create channels
+ch_input_dir_for_hybrid = Channel.value(cenhapmer_dir_path)
+ch_kmer_tsv             = process_cenhapmer_counts_output.kmer_matrix
+ch_qc_file              = get_counts_kmc.out
+ch_rust_binary          = Channel.fromPath("${baseDir}/rust/combine_segment_fast_indixes/target/release/hybrid_profile_toolkit")
+
+// Run process
+combine_hybrid_profiles_output = COMBINE_HYBRID_PROFILES(
+    ch_input_dir_for_hybrid,
+    ch_kmer_tsv,
+    ch_qc_file,
+    params.min_count
+)
+
+// Cleanup after completion
+combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
+    def cleanup_dir = file(cenhapmer_dir_path)
+
+    if (cleanup_dir.exists()) {
+        log.info "🧹 Cleaning cenhapmers directory: ${cleanup_dir}"
+        if (cleanup_dir.deleteDir()) {
+            log.info "✅ Deleted cenhapmers directory"
+        } else {
+            log.warn "⚠ Failed to delete cenhapmers directory"
         }
+    } else {
+        log.warn "⚠ Cleanup skipped: cenhapmers directory does not exist at ${cleanup_dir}"
     }
+}
 
 
     /*
