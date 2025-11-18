@@ -7,7 +7,7 @@ process MAPPING_ANALYSIS {
     memory params.mapping_memory ?: '32 GB'
     time params.mapping_time ?: '8h'
     
-    publishDir "${params.outdir}/mapping_analysis", mode: 'copy'
+    publishDir "${params.outdir}/mapping_analysis", mode: 'symlink'
     
     input:
     path arms_segments_fasta     // ARMS segments FASTA from SEGMENT_READS

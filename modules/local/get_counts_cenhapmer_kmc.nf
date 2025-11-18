@@ -2,7 +2,7 @@ process get_counts_cenhapmer_kmc {
 
     tag "${acc}_${cat}_Chr${chr}"
 
-    publishDir "${params.outdir}/cenhapmers", mode: 'copy'
+    publishDir "${params.outdir}/cenhapmers", mode: 'symlink'
 
 // Use smaller resources now since we're running per combination
 cpus params.cenhapmer_cpus ?: 1

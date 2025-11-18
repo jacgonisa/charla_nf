@@ -7,7 +7,7 @@ process SEGMENT_READS {
     memory params.segment_memory ?: '16 GB'
     time params.segment_time ?: '4h'
     
-    publishDir "${params.outdir}/read_segments", mode: 'copy'
+    publishDir "${params.outdir}/read_segments", mode: 'symlink'
     
     input:
     path curated_table           // Final curated table from CURATE_HYBRID_PROFILES
