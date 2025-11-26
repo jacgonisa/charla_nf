@@ -25,6 +25,63 @@ import seaborn as sns
 from collections import defaultdict
 
 
+def load_bed_file_sizes(bed_file):
+    """
+    Load genomic region sizes from BED file.
+
+    BED format: Chr_Region_Parent_Arm  Start  End
+    Example: Chr1_ARMS_Col_1  0  14841147
+
+    Returns dict: {(parent, region_type, chr): size_in_bp}
+    """
+    region_sizes = {}
+
+    if not os.path.exists(bed_file):
+        return region_sizes
+
+    with open(bed_file) as f:
+        for line in f:
+            if not line.strip():
+                continue
+
+            parts = line.strip().split('\t')
+            if len(parts) < 3:
+                continue
+
+            name = parts[0]
+            start = int(parts[1])
+            end = int(parts[2])
+            size_bp = end - start
+
+            # Parse name: Chr1_ARMS_Col_1 or Chr1_CEN_Col
+            name_parts = name.split('_')
+            if len(name_parts) >= 3:
+                chr_part = name_parts[0]  # Chr1, Chr2, etc.
+                region_part = name_parts[1]  # ARMS or CEN
+                parent_part = name_parts[2]  # Col or Ler
+
+                chr_num = chr_part.replace('Chr', '')
+
+                # Normalize parent name
+                if parent_part == 'Col':
+                    parent = 'Col-0'
+                elif parent_part == 'Ler':
+                    parent = 'Ler-0'
+                else:
+                    parent = parent_part
+
+                region_type = region_part  # ARMS or CEN
+
+                # Sum sizes for multiple arms (Chr1_ARMS_Col_1 + Chr1_ARMS_Col_2)
+                key = (parent, region_type, chr_num)
+                if key in region_sizes:
+                    region_sizes[key] += size_bp
+                else:
+                    region_sizes[key] = size_bp
+
+    return region_sizes
+
+
 def count_kmers_in_database(kmc_prefix):
     """
     Count total k-mers in a KMC database using kmc_tools.
@@ -66,7 +123,7 @@ def count_kmers_in_database(kmc_prefix):
         return 0
 
 
-def analyze_marker_database(cenhapmer_dir, output_prefix):
+def analyze_marker_database(cenhapmer_dir, output_prefix, col_bed=None, ler_bed=None):
     """
     Analyze marker balance across the cenhapmer database.
 
@@ -190,10 +247,38 @@ def analyze_marker_database(cenhapmer_dir, output_prefix):
     # Create DataFrame
     df = pd.DataFrame(results)
 
-    # Save raw counts
+    # Load genomic region sizes from BED files if provided
+    region_sizes = {}
+    if col_bed and os.path.exists(col_bed):
+        print(f"\nLoading Col-0 region sizes from: {col_bed}")
+        region_sizes.update(load_bed_file_sizes(col_bed))
+    if ler_bed and os.path.exists(ler_bed):
+        print(f"Loading Ler-0 region sizes from: {ler_bed}")
+        region_sizes.update(load_bed_file_sizes(ler_bed))
+
+    # Calculate marker density (markers per Mb) if region sizes available
+    if region_sizes:
+        print(f"\nCalculating marker density (markers per Mb)...")
+        df['region_size_bp'] = df.apply(
+            lambda row: region_sizes.get((row['parent'], row['region_type'], row['chromosome']), 0),
+            axis=1
+        )
+        df['region_size_mb'] = df['region_size_bp'] / 1_000_000
+        df['marker_density'] = df.apply(
+            lambda row: row['kmer_count'] / row['region_size_mb'] if row['region_size_mb'] > 0 else 0,
+            axis=1
+        )
+        print(f"Added marker density column (markers/Mb)")
+    else:
+        print(f"\nWarning: No BED files provided, marker density not calculated")
+        df['region_size_bp'] = 0
+        df['region_size_mb'] = 0.0
+        df['marker_density'] = 0.0
+
+    # Save raw counts with density
     output_tsv = f"{output_prefix}_marker_counts.tsv"
     df.to_csv(output_tsv, sep='\t', index=False)
-    print(f"\nSaved marker counts to: {output_tsv}")
+    print(f"Saved marker counts to: {output_tsv}")
 
     return df
 
@@ -253,6 +338,68 @@ def calculate_balance_metrics(df, output_prefix):
         print(f"\n  {parent} CV across chromosomes: {cv:.1f}%")
         if cv > 30:
             print(f"    ⚠️  High variability across chromosomes!")
+
+    # ========== DENSITY-BASED ANALYSIS (NORMALIZED BY GENOMIC SIZE) ==========
+    if 'marker_density' in df.columns and df['marker_density'].sum() > 0:
+        print("\n" + "="*70)
+        print("MARKER DENSITY ANALYSIS (Normalized by genomic region size)")
+        print("="*70)
+
+        # Overall parent density balance
+        parent_density = df.groupby('parent').apply(
+            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0
+        )
+        print("\n4. OVERALL PARENT DENSITY (markers/Mb)")
+        print("-" * 40)
+        for parent, density in parent_density.items():
+            print(f"  {parent}: {density:,.1f} markers/Mb")
+
+        if len(parent_density) == 2:
+            ratio = parent_density.max() / parent_density.min()
+            imbalance_pct = (ratio - 1) * 100
+            print(f"\n  Density imbalance ratio: {ratio:.2f}:1")
+            print(f"  Density imbalance: {imbalance_pct:.1f}%")
+
+            if ratio > 1.2:
+                print(f"  ⚠️  WARNING: >20% density imbalance between parents!")
+            elif ratio > 1.1:
+                print(f"  ⚡ CAUTION: >10% density imbalance detected")
+            else:
+                print(f"  ✓ Parents have well-balanced marker density")
+
+        # Region-specific density
+        print("\n5. REGION-SPECIFIC DENSITY (markers/Mb)")
+        print("-" * 40)
+        region_density = df.groupby(['parent', 'region_type']).apply(
+            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0
+        ).unstack(fill_value=0)
+        print(region_density)
+
+        if 'ARMS' in region_density.columns and 'CEN' in region_density.columns:
+            for parent in region_density.index:
+                arms_density = region_density.loc[parent, 'ARMS']
+                cen_density = region_density.loc[parent, 'CEN']
+                ratio = arms_density / cen_density if cen_density > 0 else float('inf')
+                print(f"\n  {parent} ARMS:CEN density ratio: {ratio:.2f}:1")
+                print(f"    (This is the TRUE marker density difference)")
+
+        # Chromosome-specific density
+        print("\n6. CHROMOSOME-SPECIFIC DENSITY (markers/Mb)")
+        print("-" * 40)
+        chr_density = df.groupby(['parent', 'chromosome']).apply(
+            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0
+        ).unstack(fill_value=0)
+        print(chr_density)
+
+        # Calculate coefficient of variation per parent (DENSITY)
+        for parent in chr_density.index:
+            densities = chr_density.loc[parent].values
+            cv = np.std(densities) / np.mean(densities) * 100 if np.mean(densities) > 0 else 0
+            print(f"\n  {parent} CV across chromosomes (density): {cv:.1f}%")
+            if cv > 30:
+                print(f"    ⚠️  High density variability across chromosomes!")
+    else:
+        print("\n⚠️  Marker density not calculated (provide --col-bed and --ler-bed)")
 
     # Save summary metrics
     summary_file = f"{output_prefix}_balance_summary.txt"
@@ -479,6 +626,10 @@ Examples:
                        help='Directory containing cenhapmer KMC databases')
     parser.add_argument('--output-prefix', required=True,
                        help='Output file prefix for results')
+    parser.add_argument('--col-bed', required=False,
+                       help='Col-0 BED file with genomic region coordinates (for density calculation)')
+    parser.add_argument('--ler-bed', required=False,
+                       help='Ler-0 BED file with genomic region coordinates (for density calculation)')
 
     args = parser.parse_args()
 
@@ -488,7 +639,8 @@ Examples:
         os.makedirs(output_dir, exist_ok=True)
 
     # 1. Analyze marker database
-    df = analyze_marker_database(args.cenhapmer_dir, args.output_prefix)
+    df = analyze_marker_database(args.cenhapmer_dir, args.output_prefix,
+                                  args.col_bed, args.ler_bed)
 
     # 2. Calculate balance metrics
     parent_totals, region_totals, chr_totals = calculate_balance_metrics(df, args.output_prefix)
