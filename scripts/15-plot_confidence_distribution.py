@@ -200,7 +200,7 @@ def plot_region_comparison(df, output_prefix):
     # Box plot comparison
     ax2 = axes[1]
     region_data = [arms_scores, cen_scores]
-    bp = ax2.boxplot(region_data, labels=['ARMS', 'CEN'], patch_artist=True, widths=0.6)
+    bp = ax2.boxplot(region_data, tick_labels=['ARMS', 'CEN'], patch_artist=True, widths=0.6)
 
     colors = ['#3498db', '#e74c3c']
     for patch, color in zip(bp['boxes'], colors):
@@ -211,13 +211,17 @@ def plot_region_comparison(df, output_prefix):
     ax2.set_title('Confidence Score Distribution\nby Region Type', fontsize=13, fontweight='bold')
     ax2.grid(True, alpha=0.3, axis='y')
 
-    # Add statistical test result
-    from scipy import stats
-    if len(arms_scores) > 0 and len(cen_scores) > 0:
-        stat, pval = stats.mannwhitneyu(arms_scores, cen_scores, alternative='two-sided')
-        ax2.text(0.5, 0.05, f'Mann-Whitney U test\np-value: {pval:.4f}',
-                transform=ax2.transAxes, ha='center', fontsize=10,
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    # Add statistical test result (scipy is optional)
+    try:
+        from scipy import stats
+        if len(arms_scores) > 0 and len(cen_scores) > 0:
+            stat, pval = stats.mannwhitneyu(arms_scores, cen_scores, alternative='two-sided')
+            ax2.text(0.5, 0.05, f'Mann-Whitney U test\np-value: {pval:.4f}',
+                    transform=ax2.transAxes, ha='center', fontsize=10,
+                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    except ImportError:
+        # scipy not available, skip statistical test
+        print("Note: scipy not available, skipping Mann-Whitney U test")
 
     plt.tight_layout()
     plt.savefig(f'{output_prefix}_region_comparison.png', dpi=300, bbox_inches='tight')
