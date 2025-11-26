@@ -361,11 +361,13 @@ combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
     
     // Segment reads based on threshold and generate BED files
     segment_reads_output = SEGMENT_READS(
-        curate_hybrid_profiles_output.final_table.collect(),            
+        curate_hybrid_profiles_output.final_table.collect(),
         combine_hybrid_profiles_output.hybrid_profiles_file.collect(),
         processed_data_readmer_ch.map { meta, file -> file }, // Extract file from [meta, file] and Use readmer (non-masked) data
         params.threshold ?: 50,
-        params.kmer_size                          
+        params.kmer_size,
+        params.min_segment_length ?: 50,  // Minimum segment length in bp
+        params.min_token_count ?: 50      // Minimum k-mer token count
     )
 
 

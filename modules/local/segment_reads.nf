@@ -14,7 +14,9 @@ process SEGMENT_READS {
     path hybrid_profiles_file    // Original hybrid profiles file
     path input_fasta            // Original FASTA file
     val threshold               // Threshold value (e.g., 50)
-    val kmer_size    
+    val kmer_size
+    val min_segment_length      // Minimum segment length in bp (default: 50)
+    val min_token_count         // Minimum k-mer token count (default: 50)    
 
     output:
     path "threshold*/segments_*_filtered.tsv", emit: filtered_table
@@ -46,9 +48,11 @@ process SEGMENT_READS {
     echo "Step 8.2: Getting non-ectopic candidates..."
     awk -F'\\t' '\$7 == "no"' \${output_prefix}_filtered.tsv > CANDIDATE_reads_nonectopic
     
-    # Separate ARMS and CEN candidates
-    grep CA CANDIDATE_reads_nonectopic > CANDIDATE_reads_nonectopic_ARMS || touch CANDIDATE_reads_nonectopic_ARMS
-    grep CC CANDIDATE_reads_nonectopic > CANDIDATE_reads_nonectopic_CEN || touch CANDIDATE_reads_nonectopic_CEN
+    # Separate ARMS and CEN candidates based on haplotype codes in last column
+    # ARMS: haplotype combinations containing CA (Col ARMS) or LA (Ler ARMS)
+    # CEN: haplotype combinations containing CC (Col CEN) or LC (Ler CEN)
+    awk -F'\\t' '\$NF ~ /(CA[0-9]|LA[0-9])/' CANDIDATE_reads_nonectopic > CANDIDATE_reads_nonectopic_ARMS || touch CANDIDATE_reads_nonectopic_ARMS
+    awk -F'\\t' '\$NF ~ /(CC[0-9]|LC[0-9])/' CANDIDATE_reads_nonectopic > CANDIDATE_reads_nonectopic_CEN || touch CANDIDATE_reads_nonectopic_CEN
     
     # Extract read IDs
     cut -f1 CANDIDATE_reads_nonectopic_CEN > CANDIDATE_reads_nonectopic_CEN.txt
@@ -71,50 +75,61 @@ fi
 
  
     # Step 8.3: Generate BED files
-    echo "Step 8.3: Generating BED files..."
-    
+    echo "Step 8.3: Generating BED files with thresholds: min_length=${min_segment_length}bp, min_tokens=${min_token_count}..."
+
     # BED file for all filtered reads
- #   python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
- #       ../${hybrid_profiles_file} \\
- #       \${output_prefix}_filtered.tsv \\
- #       \${output_prefix}_filtered.bed ${kmer_size}
-   
-   ${projectDir}/rust/bed_processor/target/release/bed_processor \\
-      ../${hybrid_profiles_file} \\
-       \${output_prefix}_filtered.tsv \\
-       \${output_prefix}_filtered.bed ${kmer_size}
+    # Using Python script with configurable thresholds
+    python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
+        ../${hybrid_profiles_file} \\
+        \${output_prefix}_filtered.tsv \\
+        \${output_prefix}_filtered.bed \\
+        ${kmer_size} \\
+        --min-length ${min_segment_length} \\
+        --min-tokens ${min_token_count}
+
+   # NOTE: Rust bed_processor does not support configurable thresholds
+   # To use Rust version, uncomment below and comment out Python version above:
+   # ${projectDir}/rust/bed_processor/target/release/bed_processor \\
+   #    ../${hybrid_profiles_file} \\
+   #     \${output_prefix}_filtered.tsv \\
+   #     \${output_prefix}_filtered.bed ${kmer_size}
 
     
   
     # BED file for CEN candidates (if file exists and not empty)
     if [[ -s CANDIDATE_reads_nonectopic_CEN ]]; then
-        #python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
-        #    ../${hybrid_profiles_file} \\
-        #    CANDIDATE_reads_nonectopic_CEN \\
-        #    CANDIDATE_reads_nonectopic_CEN.bed ${kmer_size}
+        python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
+            ../${hybrid_profiles_file} \\
+            CANDIDATE_reads_nonectopic_CEN \\
+            CANDIDATE_reads_nonectopic_CEN.bed \\
+            ${kmer_size} \\
+            --min-length ${min_segment_length} \\
+            --min-tokens ${min_token_count}
 
-         ${projectDir}/rust/bed_processor/target/release/bed_processor \\
-      	 	../${hybrid_profiles_file} \\
-		CANDIDATE_reads_nonectopic_CEN \\
-                CANDIDATE_reads_nonectopic_CEN.bed ${kmer_size}
-    
-
+         # NOTE: Rust bed_processor alternative (no configurable thresholds):
+         # ${projectDir}/rust/bed_processor/target/release/bed_processor \\
+      	 #	../${hybrid_profiles_file} \\
+	 #	CANDIDATE_reads_nonectopic_CEN \\
+         #        CANDIDATE_reads_nonectopic_CEN.bed ${kmer_size}
     else
         touch CANDIDATE_reads_nonectopic_CEN.bed
     fi
     
     # BED file for ARMS candidates (if file exists and not empty)
     if [[ -s CANDIDATE_reads_nonectopic_ARMS ]]; then
-        #python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
-        #    ../${hybrid_profiles_file} \\
-        #    CANDIDATE_reads_nonectopic_ARMS \\
-        #    CANDIDATE_reads_nonectopic_ARMS.bed ${kmer_size}
+        python ${projectDir}/scripts/08-getting_bed_read_merged_nosmallsegments_allmerged_thr${threshold}.py \\
+            ../${hybrid_profiles_file} \\
+            CANDIDATE_reads_nonectopic_ARMS \\
+            CANDIDATE_reads_nonectopic_ARMS.bed \\
+            ${kmer_size} \\
+            --min-length ${min_segment_length} \\
+            --min-tokens ${min_token_count}
 
-     ${projectDir}/rust/bed_processor/target/release/bed_processor \\
-                ../${hybrid_profiles_file} \\
-                CANDIDATE_reads_nonectopic_ARMS \\
-                CANDIDATE_reads_nonectopic_ARMS.bed ${kmer_size}
-
+        # NOTE: Rust bed_processor alternative (no configurable thresholds):
+        # ${projectDir}/rust/bed_processor/target/release/bed_processor \\
+        #         ../${hybrid_profiles_file} \\
+        #         CANDIDATE_reads_nonectopic_ARMS \\
+        #         CANDIDATE_reads_nonectopic_ARMS.bed ${kmer_size}
     else
         touch CANDIDATE_reads_nonectopic_ARMS.bed
     fi
