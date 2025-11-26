@@ -29,6 +29,8 @@ include { COMBINE_HYBRID_PROFILES } from '../modules/local/combine_hybrid_profil
 include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles.nf'
 include { SEGMENT_READS } from '../modules/local/segment_reads.nf'
 include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
+include { CALCULATE_CONFIDENCE_SCORES } from '../modules/local/calculate_confidence_scores.nf'
+include { PLOT_CONFIDENCE_SCORES } from '../modules/local/plot_confidence_scores.nf'
 include { PLOT_CROSSOVER_MAP } from '../modules/local/plot_crossover_map.nf'
 include { NON_HYBRID_READS_ANALYSIS } from '../modules/local/non_hybrid_reads_analysis.nf'
 include { LARGE_INDEL_ANALYSIS } from '../modules/local/large_indel_analysis.nf'
@@ -412,6 +414,34 @@ combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
         cen_bed_files.first(),      // CEN BED
         ch_reference_genomes,       // Reference genomes
         params.threshold ?: 50      // Threshold
+    )
+
+    /*
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        CONFIDENCE SCORING
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    */
+
+    // Calculate confidence scores for detected crossovers
+    confidence_scores_output = CALCULATE_CONFIDENCE_SCORES(
+        mapping_analysis_output.arms_summary.first(),    // ARMS summary table
+        mapping_analysis_output.cen_summary.first(),     // CEN summary table
+        arms_bed_files.first(),                          // ARMS BED file
+        cen_bed_files.first(),                           // CEN BED file
+        mapping_analysis_output.paf_files.collect(),     // All PAF files
+        mapping_analysis_output.cowidth_files.flatten()
+            .filter { it.name.contains('ARMS') }
+            .first(),                                     // ARMS cowidths
+        mapping_analysis_output.cowidth_files.flatten()
+            .filter { it.name.contains('CEN') }
+            .first(),                                     // CEN cowidths
+        params.threshold ?: 50                           // Threshold
+    )
+
+    // Generate confidence score visualizations
+    confidence_plots_output = PLOT_CONFIDENCE_SCORES(
+        confidence_scores_output.confidence_scores.first(),
+        params.threshold ?: 50
     )
 
     /*
