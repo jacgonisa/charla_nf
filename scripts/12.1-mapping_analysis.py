@@ -21,11 +21,10 @@ def main():
         "Ler-0": "index/Ler-0_renamed.fa"
     }
 
+    # Simplified to only 2 mapping modes for faster processing
     MODE_CMD = {
-        "wm_mapont": f"winnowmap -a --secondary=no -W ${{REPETITIVE_KMER_FILE}} -x map-ont -t {cpus} -p 1.0 -N 5 ${{genome_ref}} ${{READS}} | samtools view -b -F 4 -q 10 - | samtools sort -o ${{OUTPUT_BAM}}",
-        "mm_lr_hq": f"minimap2 --secondary=no -ax lr:hq -t {cpus} -p 1.0 -N 5 ${{genome_ref}} ${{READS}} | samtools view -b -F 4 -q 10 - | samtools sort -o ${{OUTPUT_BAM}}",
         "mm_ont": f"minimap2 --secondary=no -ax map-ont -t {cpus} -p 1.0 -N 5 ${{genome_ref}} ${{READS}} | samtools view -b -F 4 -q 10 - | samtools sort -o ${{OUTPUT_BAM}}",
-        "mm_lr_hqae": f"minimap2 --secondary=no -ax lr:hqae -t {cpus} -p 1.0 -N 5 ${{genome_ref}} ${{READS}} | samtools view -b -F 4 -q 10 - | samtools sort -o ${{OUTPUT_BAM}}"
+        "wm_mapont": f"winnowmap -a --secondary=no -W ${{REPETITIVE_KMER_FILE}} -x map-ont -t {cpus} -p 1.0 -N 5 ${{genome_ref}} ${{READS}} | samtools view -b -F 4 -q 10 - | samtools sort -o ${{OUTPUT_BAM}}"
     }
 
     # Create mappings directory if it doesn't exist
