@@ -32,7 +32,8 @@ include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
 include { CALCULATE_CONFIDENCE_SCORES } from '../modules/local/calculate_confidence_scores.nf'
 include { PLOT_CONFIDENCE_SCORES } from '../modules/local/plot_confidence_scores.nf'
 include { PLOT_CROSSOVER_MAP } from '../modules/local/plot_crossover_map.nf'
-include { NON_HYBRID_READS_ANALYSIS } from '../modules/local/non_hybrid_reads_analysis.nf'
+include { NON_HYBRID_MAPPING } from '../modules/local/non_hybrid_mapping.nf'
+include { NON_HYBRID_ANALYSIS } from '../modules/local/non_hybrid_analysis.nf'
 include { LARGE_INDEL_ANALYSIS } from '../modules/local/large_indel_analysis.nf'
 include { MAFFT_ALIGN } from '../modules/local/mafft/align.nf'
 include { ANALYZE_MAFFT_ALIGNMENT } from '../modules/local/analyze_mafft_alignment.nf'
@@ -517,15 +518,28 @@ combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    NON-HYBRID READS ANALYSIS
+    NON-HYBRID READS MAPPING (Step 1: Time-consuming alignment)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// Run non-hybrid reads analysis using the kmer matrix from process_cenhapmer_counts
-non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
+// Run non-hybrid reads mapping - classify, extract, and map sequences
+// This step is time-consuming and will be cached by Nextflow
+non_hybrid_mapping_output = NON_HYBRID_MAPPING(
     process_cenhapmer_counts_output.kmer_matrix,              // TSV file with kmer counts per read (from process_cenhapmer_counts)
     processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
     ch_reference_genomes.first()                               // Reference genomes directory (reuse from mapping analysis)
+)
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    NON-HYBRID READS ANALYSIS (Step 2: Fast indel analysis and plotting)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+// Run non-hybrid reads analysis - analyze indels and create plots
+// This step is fast and can be re-run independently when plots are modified
+non_hybrid_analysis_output = NON_HYBRID_ANALYSIS(
+    non_hybrid_mapping_output.output_directory                 // Directory with BAM files from mapping step
 )
 
 /*
@@ -536,7 +550,7 @@ non_hybrid_analysis_output = NON_HYBRID_READS_ANALYSIS(
 
 // Run large indel analysis to investigate 178bp satellite patterns
 large_indel_analysis_output = LARGE_INDEL_ANALYSIS(
-    non_hybrid_analysis_output.output_directory,              // Directory from NON_HYBRID_READS_ANALYSIS
+    non_hybrid_mapping_output.output_directory,                // Directory from NON_HYBRID_MAPPING (contains BAM files)
     processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
     ch_reference_genomes.first(),                              // Reference genomes directory
     ch_col_bed.first(),                                    // Parent 1 BED file for chromosome reconstruction
