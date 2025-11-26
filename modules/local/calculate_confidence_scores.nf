@@ -10,14 +10,14 @@ process CALCULATE_CONFIDENCE_SCORES {
     publishDir "${params.outdir}/confidence_scores", mode: 'symlink'
 
     input:
-    path arms_summary           // ARMS summary_table.csv
-    path cen_summary            // CEN summary_table.csv
-    path arms_bed              // ARMS BED file
-    path cen_bed               // CEN BED file
-    path paf_files             // All PAF files from mapping
-    path arms_cowidth          // ARMS cowidths file
-    path cen_cowidth           // CEN cowidths file
-    val threshold              // Threshold value
+    path arms_summary, stageAs: 'summary_table_ARMS.csv'      // ARMS summary_table.csv
+    path cen_summary, stageAs: 'summary_table_CEN.csv'        // CEN summary_table.csv
+    path arms_bed, stageAs: 'segments_ARMS.bed'               // ARMS BED file
+    path cen_bed, stageAs: 'segments_CEN.bed'                 // CEN BED file
+    path paf_files                                            // All PAF files from mapping
+    path arms_cowidth, stageAs: 'cowidths_ARMS.txt'           // ARMS cowidths file
+    path cen_cowidth, stageAs: 'cowidths_CEN.txt'             // CEN cowidths file
+    val threshold                                             // Threshold value
 
     output:
     path "threshold${threshold}/confidence_scores.tsv", emit: confidence_scores
@@ -43,13 +43,13 @@ process CALCULATE_CONFIDENCE_SCORES {
 
     # Run confidence scoring
     python ${projectDir}/scripts/14-calculate_confidence_scores.py \\
-        --summary-arms ${arms_summary} \\
-        --summary-cen ${cen_summary} \\
-        --bed-arms ${arms_bed} \\
-        --bed-cen ${cen_bed} \\
+        --summary-arms summary_table_ARMS.csv \\
+        --summary-cen summary_table_CEN.csv \\
+        --bed-arms segments_ARMS.bed \\
+        --bed-cen segments_CEN.bed \\
         --paf-dir \${threshold_dir}/paf_files \\
-        --cowidth-arms ${arms_cowidth} \\
-        --cowidth-cen ${cen_cowidth} \\
+        --cowidth-arms cowidths_ARMS.txt \\
+        --cowidth-cen cowidths_CEN.txt \\
         --output \${threshold_dir}/confidence_scores.tsv \\
         2> \${threshold_dir}/confidence_summary.txt
 
