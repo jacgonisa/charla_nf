@@ -67,7 +67,7 @@ jobs:
           nf-test test \
             --profile ${{ matrix.profile }} \
             --verbose \
-            tests/modules/local/*.nf.test
+            modules/local/tests/*.nf.test
 
       - name: Upload test results
         if: always()
