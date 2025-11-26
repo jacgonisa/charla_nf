@@ -70,12 +70,22 @@ def analyze_marker_database(cenhapmer_dir, output_prefix):
     """
     Analyze marker balance across the cenhapmer database.
 
-    Expected directory structure:
+    Expected directory structure (supports two filename formats):
+
+    Format 1 (compact):
     cenhapmer_dir/
     ├── Col-0_CA1.kmc_pre/suf  # Col chromosome 1 arms
     ├── Col-0_CC1.kmc_pre/suf  # Col chromosome 1 centromere
     ├── Ler-0_LA1.kmc_pre/suf  # Ler chromosome 1 arms
     ├── Ler-0_LC1.kmc_pre/suf  # Ler chromosome 1 centromere
+    └── ...
+
+    Format 2 (verbose):
+    cenhapmer_dir/
+    ├── unique_Col-0_ARMS_Chr1_k31.kmc_pre/suf
+    ├── unique_Col-0_CEN_Chr1_k31.kmc_pre/suf
+    ├── unique_Ler-0_ARMS_Chr1_k31.kmc_pre/suf
+    ├── unique_Ler-0_CEN_Chr1_k31.kmc_pre/suf
     └── ...
     """
 
@@ -100,30 +110,68 @@ def analyze_marker_database(cenhapmer_dir, output_prefix):
     for kmc_file in sorted(kmc_files):
         basename = os.path.basename(kmc_file)
 
-        # Parse filename: Parent_RegionChr (e.g., Col-0_CA1, Ler-0_LC2)
+        # Parse filename - support two formats:
+        # Format 1: Parent_RegionChr (e.g., Col-0_CA1, Ler-0_LC2)
+        # Format 2: unique_Parent_RegionType_ChrN_kSize (e.g., unique_Col-0_ARMS_Chr1_k31)
+
         parts = basename.split('_')
-        if len(parts) < 2:
+
+        # Detect format based on number of parts
+        if len(parts) >= 5 and parts[0] == 'unique':
+            # Format 2: unique_Parent_RegionType_ChrN_kSize
+            parent = parts[1]  # Col-0 or Ler-0
+            region_type_str = parts[2]  # ARMS or CEN
+            chr_part = parts[3]  # Chr1, Chr2, etc.
+
+            # Extract chromosome number
+            chr_num = chr_part.replace('Chr', '')  # 1, 2, 3, 4, 5
+
+            # Determine region type and code
+            if region_type_str == 'ARMS':
+                region_type = 'ARMS'
+                # Create region code: CA (Col ARMS), LA (Ler ARMS)
+                if 'Col' in parent:
+                    region_code = 'CA' + chr_num
+                elif 'Ler' in parent:
+                    region_code = 'LA' + chr_num
+                else:
+                    region_code = 'XA' + chr_num  # Unknown parent
+            elif region_type_str == 'CEN':
+                region_type = 'CEN'
+                # Create region code: CC (Col CEN), LC (Ler CEN)
+                if 'Col' in parent:
+                    region_code = 'CC' + chr_num
+                elif 'Ler' in parent:
+                    region_code = 'LC' + chr_num
+                else:
+                    region_code = 'XC' + chr_num  # Unknown parent
+            else:
+                region_type = 'UNKNOWN'
+                region_code = 'XX' + chr_num
+
+        elif len(parts) >= 2:
+            # Format 1: Parent_RegionChr (e.g., Col-0_CA1, Ler-0_LC2)
+            parent = parts[0]  # Col-0 or Ler-0
+            region_chr = parts[1]  # CA1, CC1, LA1, LC1, etc.
+
+            # Extract region (C=CEN, A=ARMS) and chromosome number
+            if len(region_chr) < 3:
+                print(f"Warning: Cannot parse region/chr from {region_chr}", file=sys.stderr)
+                continue
+
+            region_code = region_chr[:2]  # CA, CC, LA, LC
+            chr_num = region_chr[2:]      # 1, 2, 3, 4, 5
+
+            # Determine region type
+            if region_code[1] == 'A':
+                region_type = 'ARMS'
+            elif region_code[1] == 'C':
+                region_type = 'CEN'
+            else:
+                region_type = 'UNKNOWN'
+        else:
             print(f"Warning: Unexpected filename format: {basename}", file=sys.stderr)
             continue
-
-        parent = parts[0]  # Col-0 or Ler-0
-        region_chr = parts[1]  # CA1, CC1, LA1, LC1, etc.
-
-        # Extract region (C=CEN, A=ARMS) and chromosome number
-        if len(region_chr) < 3:
-            print(f"Warning: Cannot parse region/chr from {region_chr}", file=sys.stderr)
-            continue
-
-        region_code = region_chr[:2]  # CA, CC, LA, LC
-        chr_num = region_chr[2:]      # 1, 2, 3, 4, 5
-
-        # Determine region type
-        if region_code[1] == 'A':
-            region_type = 'ARMS'
-        elif region_code[1] == 'C':
-            region_type = 'CEN'
-        else:
-            region_type = 'UNKNOWN'
 
         print(f"Counting k-mers in {basename}...", end=' ')
         kmer_count = count_kmers_in_database(kmc_file)
