@@ -137,31 +137,31 @@ def main(kmer_profile_file, curated_tsv_file, outfile, k, min_segment_length=50,
     """
     curated = read_curated_tsv(curated_tsv_file)
 
-    with open(kmer_profile_file) as f:
-        lines = f.read().splitlines()
-
     bed_lines = []
     current_read = None
     profile_lines = []
 
-    for line in lines:
-        if line.startswith(">"):
-            # Process the previous read, if any.
-            if current_read is not None and profile_lines:
-                profile = "".join(profile_lines)
-                if current_read in curated:
-                    allowed = curated[current_read]
-                    segments = process_kmer_profile(current_read, profile, k)
-                    # Keep only segments with allowed codes.
-                    segments = [seg for seg in segments if seg[3] in allowed]
-                    merged = merge_consecutive_by_code(segments, min_segment_length, min_token_count)
-                    for rec in merged:
-                        r, start, end, region, _ = rec
-                        bed_lines.append(f"{r}\t{start}\t{end}\t{region}")
-            current_read = line[1:].strip()
-            profile_lines = []
-        else:
-            profile_lines.append(line.strip())
+    # Stream file line-by-line to avoid loading entire file into memory
+    with open(kmer_profile_file) as f:
+        for line in f:
+            line = line.rstrip('\n')  # Remove newline
+            if line.startswith(">"):
+                # Process the previous read, if any.
+                if current_read is not None and profile_lines:
+                    profile = "".join(profile_lines)
+                    if current_read in curated:
+                        allowed = curated[current_read]
+                        segments = process_kmer_profile(current_read, profile, k)
+                        # Keep only segments with allowed codes.
+                        segments = [seg for seg in segments if seg[3] in allowed]
+                        merged = merge_consecutive_by_code(segments, min_segment_length, min_token_count)
+                        for rec in merged:
+                            r, start, end, region, _ = rec
+                            bed_lines.append(f"{r}\t{start}\t{end}\t{region}")
+                current_read = line[1:].strip()
+                profile_lines = []
+            else:
+                profile_lines.append(line.strip())
 
     # Process the final read.
     if current_read is not None and profile_lines:
