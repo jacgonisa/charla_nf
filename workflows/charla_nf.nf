@@ -29,14 +29,22 @@ include { COMBINE_HYBRID_PROFILES } from '../modules/local/combine_hybrid_profil
 include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles.nf'
 include { SEGMENT_READS } from '../modules/local/segment_reads.nf'
 include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
-include { CALCULATE_CONFIDENCE_SCORES } from '../modules/local/calculate_confidence_scores.nf'
-include { PLOT_CONFIDENCE_SCORES } from '../modules/local/plot_confidence_scores.nf'
+// REMOVED: V2 confidence scoring - replaced by V3
+// include { CALCULATE_CONFIDENCE_SCORES_V2 } from '../modules/local/calculate_confidence_scores_v2.nf'
+include { CALCULATE_CONFIDENCE_V3 } from '../modules/local/calculate_confidence_v3.nf'
+include { ANALYZE_SCO_NCO } from '../modules/local/analyze_sco_nco.nf'
+include { VISUALIZE_READ_STRUCTURES } from '../modules/local/visualize_read_structures.nf'
+include { VISUALIZE_SEGMENTS } from '../modules/local/visualize_segments.nf'
+// REMOVED: Old confidence plotting module (not needed - v2 generates its own diagnostic plots)
+// include { PLOT_CONFIDENCE_SCORES } from '../modules/local/plot_confidence_scores.nf'
 include { PLOT_CROSSOVER_MAP } from '../modules/local/plot_crossover_map.nf'
 include { NON_HYBRID_MAPPING } from '../modules/local/non_hybrid_mapping.nf'
 include { NON_HYBRID_ANALYSIS } from '../modules/local/non_hybrid_analysis.nf'
 include { LARGE_INDEL_ANALYSIS } from '../modules/local/large_indel_analysis.nf'
-include { MAFFT_ALIGN } from '../modules/local/mafft/align.nf'
-include { ANALYZE_MAFFT_ALIGNMENT } from '../modules/local/analyze_mafft_alignment.nf'
+include { ANALYZE_INDEL_MONOMER_BOUNDARIES } from '../modules/local/analyze_indel_monomer_boundaries.nf'
+// REMOVED: MAFFT modules (replaced with indel monomer analysis)
+// include { MAFFT_ALIGN } from '../modules/local/mafft/align.nf'
+// include { ANALYZE_MAFFT_ALIGNMENT } from '../modules/local/analyze_mafft_alignment.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -423,26 +431,55 @@ combine_hybrid_profiles_output.hybrid_profiles_file.subscribe { hybrid_file ->
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     */
 
-    // Calculate confidence scores for detected crossovers
-    confidence_scores_output = CALCULATE_CONFIDENCE_SCORES(
-        mapping_analysis_output.arms_summary.first(),    // ARMS summary table
-        mapping_analysis_output.cen_summary.first(),     // CEN summary table
-        arms_bed_files.first(),                          // ARMS BED file
-        cen_bed_files.first(),                           // CEN BED file
-        mapping_analysis_output.paf_files.collect(),     // All PAF files
-        mapping_analysis_output.cowidth_files.flatten()
-            .filter { it.name.contains('ARMS') }
-            .first(),                                     // ARMS cowidths
-        mapping_analysis_output.cowidth_files.flatten()
-            .filter { it.name.contains('CEN') }
-            .first(),                                     // CEN cowidths
-        params.threshold ?: 50                           // Threshold
+    // Step 1: Visualize read structures with parental haplotypes (doesn't need confidence scores)
+    read_structure_output = VISUALIZE_READ_STRUCTURES(
+        mapping_analysis_output.arms_mapping_results.first(),  // ARMS mapping directory (contains best_alignments.paf)
+        mapping_analysis_output.cen_mapping_results.first(),   // CEN mapping directory (contains best_alignments.paf)
+        file('NO_FILE'),                                       // No confidence scores needed for initial run
+        params.max_structure_reads ?: 200
     )
 
-    // Generate confidence score visualizations
-    confidence_plots_output = PLOT_CONFIDENCE_SCORES(
-        confidence_scores_output.confidence_scores.first(),
+    // Step 2: Calculate confidence scores V3 (uses parental proportions + curated profiles for TRUE classification)
+    confidence_v3_output = CALCULATE_CONFIDENCE_V3(
+        read_structure_output.proportions_table.first(),
+        curate_hybrid_profiles_output.cut_table.first(),  // SOURCE OF TRUTH for classification (ultracurated_cut)
+        mapping_analysis_output.arms_summary.first(),
+        mapping_analysis_output.cen_summary.first(),
+        arms_bed_files.first(),
+        cen_bed_files.first(),
         params.threshold ?: 50
+    )
+
+    // Step 3: Filter segments BED file for SCO/NCO analysis
+    segments_bed_for_analysis = segment_reads_output.bed_files
+        .flatten()
+        .filter { it.name.contains('segments_') && it.name.contains('_filtered.bed') }
+        .first()
+
+    // Step 3: Analyze SCO vs NCO comparison (uses V3 confidence scores)
+    sco_nco_analysis_output = ANALYZE_SCO_NCO(
+        confidence_v3_output.confidence_scores.first(),
+        mapping_analysis_output.arms_summary.first(),  // Use summary as raw metrics
+        mapping_analysis_output.cowidth_files.flatten()
+            .filter { it.name.contains('ARMS') }
+            .first(),
+        mapping_analysis_output.cowidth_files.flatten()
+            .filter { it.name.contains('CEN') }
+            .first(),
+        segments_bed_for_analysis  // Add BED file input
+    )
+
+    // Step 4: Visualize segment structures from BED files (shows unassigned regions)
+    // Filter for the main segments BED file (not ARMS/CEN specific ones)
+    segments_bed = segment_reads_output.bed_files
+        .flatten()
+        .filter { it.name.contains('segments_') && it.name.contains('_filtered.bed') }
+        .first()
+
+    segment_visualization_output = VISUALIZE_SEGMENTS(
+        segments_bed,
+        confidence_v3_output.confidence_scores.first(),
+        params.max_structure_reads ?: 200
     )
 
     /*
@@ -544,40 +581,53 @@ non_hybrid_analysis_output = NON_HYBRID_ANALYSIS(
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    LARGE INDEL ANALYSIS (>50bp) - Satellite Structure Investigation
+    LARGE INDEL ANALYSIS (>50bp) - Satellite Structure Investigation (OPTIONAL)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-// Run large indel analysis to investigate 178bp satellite patterns
-large_indel_analysis_output = LARGE_INDEL_ANALYSIS(
-    non_hybrid_mapping_output.output_directory,                // Directory from NON_HYBRID_MAPPING (contains BAM files)
-    processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
-    ch_reference_genomes.first(),                              // Reference genomes directory
-    ch_col_bed.first(),                                    // Parent 1 BED file for chromosome reconstruction
-    ch_ler_bed.first()                                     // Parent 2 BED file for chromosome reconstruction
-)
+if (params.run_large_indel_analysis) {
+    // Run large indel analysis to investigate 178bp satellite patterns
+    large_indel_analysis_output = LARGE_INDEL_ANALYSIS(
+        non_hybrid_mapping_output.output_directory,                // Directory from NON_HYBRID_MAPPING (contains BAM files)
+        processed_data_readmer_ch.map { meta, file -> file }.first(),  // Main FASTA file (non-masked)
+        ch_reference_genomes.first(),                              // Reference genomes directory
+        ch_col_bed.first(),                                    // Parent 1 BED file for chromosome reconstruction
+        ch_ler_bed.first()                                     // Parent 2 BED file for chromosome reconstruction
+    )
 
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    MAFFT ALIGNMENT - Align satellite blocks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
-
-// Prepare satellite blocks for MAFFT alignment
-ch_satellite_blocks = large_indel_analysis_output.satellite_blocks
-    .map { blocks_file ->
-        def meta = [id: params.sample_id + '_satellite_blocks']
-        tuple(meta, blocks_file)
-    }
-
-// Run MAFFT alignment on satellite blocks
-mafft_output = MAFFT_ALIGN(ch_satellite_blocks)
-
-// Analyze MAFFT alignment and update satellite analysis
-mafft_analysis_output = ANALYZE_MAFFT_ALIGNMENT(
-    mafft_output.fas,
-    large_indel_analysis_output.satellite_analysis
-)
+    // Analyze large indel boundaries relative to the 178bp CEN178 satellite monomer
+    // This replaces the MAFFT alignment which was found to be less useful
+    indel_monomer_analysis_output = ANALYZE_INDEL_MONOMER_BOUNDARIES(
+        large_indel_analysis_output.indel_sequences,       // FASTA of indel sequences
+        large_indel_analysis_output.large_indels_catalog,  // TSV catalog
+        ch_col_bed.first(),                                 // BED with centromere coords (using Col as reference)
+        params.threads ?: 8                                 // Number of threads
+    )
+} else {
+    // Create empty channels when indel analysis is disabled
+    large_indel_analysis_output = [
+        output_directory: Channel.empty(),
+        large_indels_catalog: Channel.empty(),
+        indel_sequences: Channel.empty(),
+        mapping_files: Channel.empty(),
+        genomic_plots: Channel.empty(),
+        satellite_blocks: Channel.empty(),
+        satellite_analysis: Channel.empty(),
+        structure_plots: Channel.empty()
+    ]
+    indel_monomer_analysis_output = [
+        output_directory: Channel.empty(),
+        metaprofile_plot: Channel.empty(),
+        inframe_plot: Channel.empty(),
+        inframe_results: Channel.empty(),
+        coverage_plot: Channel.empty(),
+        comparison_plot: Channel.empty(),
+        clustering_plot: Channel.empty(),
+        monomer_variants: Channel.empty(),
+        heatmap_plot: Channel.empty(),
+        alignment_files: Channel.empty()
+    ]
+}
 
 
     emit:
@@ -625,13 +675,35 @@ mafft_analysis_output = ANALYZE_MAFFT_ALIGNMENT(
     coverage_data = crossover_plot_output.coverage_data
  //   plot_log_files = crossover_plot_output.log_files
 
-// Non-hybrid analysis outputs
-    nonhybrid_directory = non_hybrid_analysis_output.output_directory
-    nonhybrid_read_lists = non_hybrid_analysis_output.read_lists
-    nonhybrid_sequences = non_hybrid_analysis_output.extracted_sequences
-    nonhybrid_bam_files = non_hybrid_analysis_output.bam_files
-    nonhybrid_bai_files = non_hybrid_analysis_output.bai_files
+    // Confidence scoring outputs (V3 - Redesigned with proper metrics)
+    confidence_scores = confidence_v3_output.confidence_scores
+    confidence_diagnostic_plots = confidence_v3_output.diagnostic_plots
+    confidence_high_conf_reads = confidence_v3_output.high_conf_reads
+    confidence_high_sco_reads = confidence_v3_output.high_conf_sco_reads
+
+    // SCO vs NCO analysis outputs
+    sco_nco_comparison_plot = sco_nco_analysis_output.comparison_plot
+    sco_nco_resolution_plot = sco_nco_analysis_output.resolution_plot
+    sco_nco_summary = sco_nco_analysis_output.summary_table
+
+    // Read structure visualization outputs
+    read_structures_plot = read_structure_output.structures_plot
+    read_parental_plot = read_structure_output.parental_plot
+    read_structure_summary = read_structure_output.summary
+    parental_proportions = read_structure_output.proportions_table
+    read_structures_sco = read_structure_output.sco_structures
+    read_structures_nco = read_structure_output.nco_structures
+
+
+// Non-hybrid mapping outputs (from mapping step)
+    nonhybrid_mapping_directory = non_hybrid_mapping_output.output_directory
+    nonhybrid_read_lists = non_hybrid_mapping_output.read_lists
+    nonhybrid_sequences = non_hybrid_mapping_output.extracted_sequences
+
+// Non-hybrid analysis outputs (from analysis step)
+    nonhybrid_analysis_directory = non_hybrid_analysis_output.output_directory
     indel_analysis = non_hybrid_analysis_output.indel_results
+    indel_plots = non_hybrid_analysis_output.plots
 
     // Large indel analysis outputs
     large_indel_directory = large_indel_analysis_output.output_directory
@@ -643,9 +715,17 @@ mafft_analysis_output = ANALYZE_MAFFT_ALIGNMENT(
     large_indel_satellite_analysis = large_indel_analysis_output.satellite_analysis
     large_indel_structure_plots = large_indel_analysis_output.structure_plots
 
-    // MAFFT alignment outputs
-    mafft_alignment = mafft_output.fas
-    mafft_analysis_updated = mafft_analysis_output.updated_analysis
+    // Indel monomer boundaries analysis outputs (replaces MAFFT)
+    indel_monomer_directory = indel_monomer_analysis_output.output_directory
+    indel_monomer_metaprofile = indel_monomer_analysis_output.metaprofile_plot
+    indel_monomer_inframe_plot = indel_monomer_analysis_output.inframe_plot
+    indel_monomer_inframe_results = indel_monomer_analysis_output.inframe_results
+    indel_monomer_coverage_plot = indel_monomer_analysis_output.coverage_plot
+    indel_monomer_comparison_plot = indel_monomer_analysis_output.comparison_plot
+    indel_monomer_clustering_plot = indel_monomer_analysis_output.clustering_plot
+    indel_monomer_variants = indel_monomer_analysis_output.monomer_variants
+    indel_monomer_heatmap = indel_monomer_analysis_output.heatmap_plot
+    indel_monomer_alignments = indel_monomer_analysis_output.alignment_files
 
 }
 
