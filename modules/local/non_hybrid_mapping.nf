@@ -16,10 +16,8 @@ process NON_HYBRID_MAPPING {
 
     output:
     path("${params.sample_id}_nonhybrid/"), emit: output_directory
-    path("${params.sample_id}_nonhybrid/*_reads.txt"), emit: read_lists
+    path("${params.sample_id}_nonhybrid/*_reads.txt"), emit: read_lists, optional: true
     path("${params.sample_id}_nonhybrid/*_sequences.fa"), emit: extracted_sequences, optional: true
-    path("${params.sample_id}_nonhybrid/mappings/*.bam"), emit: bam_files, optional: true
-    path("${params.sample_id}_nonhybrid/mappings/*.bam.bai"), emit: bai_files, optional: true
 
     script:
     """
@@ -35,6 +33,8 @@ process NON_HYBRID_MAPPING {
     if [ ! -d "${params.sample_id}_nonhybrid" ] || [ -z "\$(find ${params.sample_id}_nonhybrid -name '*_sequences.fa' -size +0c 2>/dev/null)" ]; then
         echo "No sequences extracted. Exiting early."
         mkdir -p ${params.sample_id}_nonhybrid/mappings
+        # Create placeholder files to avoid Nextflow publishing errors
+        touch ${params.sample_id}_nonhybrid/mappings/.placeholder
         exit 0
     fi
 
@@ -43,6 +43,9 @@ process NON_HYBRID_MAPPING {
     python ${projectDir}/scripts/12.1-mapping_analysis.py \\
         ${params.sample_id}_nonhybrid \\
         ${task.cpus}
+
+    # Ensure mappings directory exists even if no BAMs created
+    mkdir -p ${params.sample_id}_nonhybrid/mappings
 
     echo "=== Non-hybrid reads mapping complete ==="
     """

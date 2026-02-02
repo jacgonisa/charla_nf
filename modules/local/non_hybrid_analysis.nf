@@ -25,7 +25,7 @@ process NON_HYBRID_ANALYSIS {
     # Check if BAM files exist
     if [ ! -d "${mapping_directory}/mappings" ] || [ -z "\$(find ${mapping_directory}/mappings -name '*.bam' 2>/dev/null)" ]; then
         echo "No BAM files found. Creating empty results file."
-        echo -e "haplotype\\tmapping_mode\\ttotal_reads\\tmapped_reads\\tindels\\tavg_indel_size\\tindel_density" > ${params.sample_id}_nonhybrid_analysis/indel_analysis_results.tsv
+        echo -e "haplotype\\tmapping_mode\\ttotal_reads\\tmapped_reads\\tmapped_mb\\tindels\\tinsertions\\tdeletions\\tavg_indel_size\\tindel_density\\treads_with_indels\\tbackground\\tregion\\tchromosome" > ${params.sample_id}_nonhybrid_analysis/indel_analysis_results.tsv
         exit 0
     fi
 

@@ -23,6 +23,22 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from collections import defaultdict
+from scipy import stats
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+
+# Publication-ready plot settings
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Arial', 'DejaVu Sans', 'Liberation Sans']
+plt.rcParams['font.size'] = 10
+plt.rcParams['axes.labelsize'] = 11
+plt.rcParams['axes.titlesize'] = 12
+plt.rcParams['xtick.labelsize'] = 9
+plt.rcParams['ytick.labelsize'] = 9
+plt.rcParams['legend.fontsize'] = 9
+plt.rcParams['figure.titlesize'] = 13
+plt.rcParams['pdf.fonttype'] = 42  # TrueType fonts for PDF
+plt.rcParams['ps.fonttype'] = 42
 
 
 def load_bed_file_sizes(bed_file):
@@ -346,8 +362,9 @@ def calculate_balance_metrics(df, output_prefix):
         print("="*70)
 
         # Overall parent density balance
-        parent_density = df.groupby('parent').apply(
-            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0
+        parent_density = df.groupby('parent', group_keys=False).apply(
+            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0,
+            include_groups=False
         )
         print("\n4. OVERALL PARENT DENSITY (markers/Mb)")
         print("-" * 40)
@@ -370,8 +387,9 @@ def calculate_balance_metrics(df, output_prefix):
         # Region-specific density
         print("\n5. REGION-SPECIFIC DENSITY (markers/Mb)")
         print("-" * 40)
-        region_density = df.groupby(['parent', 'region_type']).apply(
-            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0
+        region_density = df.groupby(['parent', 'region_type'], group_keys=False).apply(
+            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0,
+            include_groups=False
         ).unstack(fill_value=0)
         print(region_density)
 
@@ -386,8 +404,9 @@ def calculate_balance_metrics(df, output_prefix):
         # Chromosome-specific density
         print("\n6. CHROMOSOME-SPECIFIC DENSITY (markers/Mb)")
         print("-" * 40)
-        chr_density = df.groupby(['parent', 'chromosome']).apply(
-            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0
+        chr_density = df.groupby(['parent', 'chromosome'], group_keys=False).apply(
+            lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum() if x['region_size_mb'].sum() > 0 else 0,
+            include_groups=False
         ).unstack(fill_value=0)
         print(chr_density)
 
@@ -424,6 +443,39 @@ def calculate_balance_metrics(df, output_prefix):
     print(f"\nSaved balance summary to: {summary_file}")
 
     return parent_totals, region_totals, chr_totals
+
+
+def format_number(num):
+    """Format large numbers for plot labels (e.g., 1.2M, 450K)"""
+    if num >= 1_000_000:
+        return f'{num/1_000_000:.1f}M'
+    elif num >= 1_000:
+        return f'{num/1_000:.0f}K'
+    else:
+        return f'{num:.0f}'
+
+
+def add_significance_bar(ax, x1, x2, y, p_value, height_offset=0):
+    """Add significance bar and p-value annotation to plot"""
+    y_max = y + height_offset
+    h = y_max * 0.02
+
+    # Draw significance bar
+    ax.plot([x1, x1, x2, x2], [y_max, y_max + h, y_max + h, y_max],
+            lw=1.5, c='black')
+
+    # Add p-value text
+    if p_value < 0.001:
+        sig_text = '***'
+    elif p_value < 0.01:
+        sig_text = '**'
+    elif p_value < 0.05:
+        sig_text = '*'
+    else:
+        sig_text = 'ns'
+
+    ax.text((x1 + x2) / 2, y_max + h, sig_text,
+            ha='center', va='bottom', fontsize=11, fontweight='bold')
 
 
 def plot_marker_distribution(df, output_prefix):
@@ -519,6 +571,328 @@ def plot_marker_distribution(df, output_prefix):
     print(f"Saved per-database plot: {plot_file2}")
 
 
+def plot_marker_density_publication(df, output_prefix, format='png'):
+    """
+    Create publication-ready marker density visualizations with statistical annotations.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Marker count data with density information
+    output_prefix : str
+        Output file prefix
+    format : str
+        Output format ('png', 'pdf', 'svg', or 'all')
+    """
+
+    if 'marker_density' not in df.columns or df['marker_density'].sum() == 0:
+        print("\nSkipping density plots (no BED files provided)")
+        return
+
+    print("\nGenerating publication-ready density visualizations...")
+
+    # Define color palette
+    colors = {
+        'Col-0': '#2C7BB6',  # Blue
+        'Ler-0': '#D7191C',  # Red
+        'ARMS': '#66C2A5',   # Teal
+        'CEN': '#FC8D62'     # Orange
+    }
+
+    # ========== FIGURE 1: Comprehensive 4-panel density analysis ==========
+    fig = plt.figure(figsize=(16, 10))
+    gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)
+
+    # Panel A: Marker density by parent
+    ax1 = fig.add_subplot(gs[0, 0])
+    parent_density = df.groupby('parent', group_keys=False).apply(
+        lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum()
+        if x['region_size_mb'].sum() > 0 else 0,
+        include_groups=False
+    )
+
+    bars = ax1.bar(range(len(parent_density)), parent_density.values,
+                   color=[colors.get(p, '#888888') for p in parent_density.index],
+                   edgecolor='black', linewidth=1.5, alpha=0.8)
+
+    ax1.set_xticks(range(len(parent_density)))
+    ax1.set_xticklabels(parent_density.index, fontweight='bold')
+    ax1.set_ylabel('Marker Density (markers/Mb)', fontweight='bold')
+    ax1.set_title('A. Overall Marker Density by Parent', fontweight='bold', loc='left')
+    ax1.spines['top'].set_visible(False)
+    ax1.spines['right'].set_visible(False)
+
+    # Add value labels
+    for i, (bar, val) in enumerate(zip(bars, parent_density.values)):
+        ax1.text(bar.get_x() + bar.get_width()/2, val,
+                f'{val:,.0f}', ha='center', va='bottom',
+                fontweight='bold', fontsize=10)
+
+    # Add statistical test if two parents
+    if len(parent_density) == 2:
+        parent1_data = df[df['parent'] == parent_density.index[0]]['marker_density'].values
+        parent2_data = df[df['parent'] == parent_density.index[1]]['marker_density'].values
+        t_stat, p_val = stats.ttest_ind(parent1_data, parent2_data)
+
+        y_max = max(parent_density.values)
+        add_significance_bar(ax1, 0, 1, y_max, p_val, height_offset=y_max*0.05)
+
+    # Panel B: Marker density by region type
+    ax2 = fig.add_subplot(gs[0, 1])
+    region_density = df.groupby(['parent', 'region_type'], group_keys=False).apply(
+        lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum()
+        if x['region_size_mb'].sum() > 0 else 0,
+        include_groups=False
+    ).unstack(fill_value=0)
+
+    x = np.arange(len(region_density))
+    width = 0.35
+
+    if 'ARMS' in region_density.columns and 'CEN' in region_density.columns:
+        bars1 = ax2.bar(x - width/2, region_density['ARMS'], width,
+                       label='ARMS', color=colors['ARMS'],
+                       edgecolor='black', linewidth=1.5, alpha=0.8)
+        bars2 = ax2.bar(x + width/2, region_density['CEN'], width,
+                       label='CEN', color=colors['CEN'],
+                       edgecolor='black', linewidth=1.5, alpha=0.8)
+
+        # Add value labels
+        for bars in [bars1, bars2]:
+            for bar in bars:
+                height = bar.get_height()
+                ax2.text(bar.get_x() + bar.get_width()/2, height,
+                        f'{height:,.0f}', ha='center', va='bottom',
+                        fontsize=8, fontweight='bold')
+
+    ax2.set_xticks(x)
+    ax2.set_xticklabels(region_density.index, fontweight='bold')
+    ax2.set_ylabel('Marker Density (markers/Mb)', fontweight='bold')
+    ax2.set_title('B. Marker Density by Region Type', fontweight='bold', loc='left')
+    ax2.legend(frameon=False, loc='upper right')
+    ax2.spines['top'].set_visible(False)
+    ax2.spines['right'].set_visible(False)
+
+    # Panel C: Marker density across chromosomes
+    ax3 = fig.add_subplot(gs[1, 0])
+    chr_density = df.groupby(['parent', 'chromosome'], group_keys=False).apply(
+        lambda x: x['kmer_count'].sum() / x['region_size_mb'].sum()
+        if x['region_size_mb'].sum() > 0 else 0,
+        include_groups=False
+    ).unstack(fill_value=0)
+
+    chr_order = sorted(chr_density.columns, key=lambda x: int(x))
+    x_pos = np.arange(len(chr_order))
+    width = 0.35
+
+    parents = chr_density.index.tolist()
+    if len(parents) == 2:
+        bars1 = ax3.bar(x_pos - width/2, chr_density.loc[parents[0], chr_order], width,
+                       label=parents[0], color=colors.get(parents[0], '#888'),
+                       edgecolor='black', linewidth=1.5, alpha=0.8)
+        bars2 = ax3.bar(x_pos + width/2, chr_density.loc[parents[1], chr_order], width,
+                       label=parents[1], color=colors.get(parents[1], '#888'),
+                       edgecolor='black', linewidth=1.5, alpha=0.8)
+
+    ax3.set_xticks(x_pos)
+    ax3.set_xticklabels([f'Chr{c}' for c in chr_order])
+    ax3.set_xlabel('Chromosome', fontweight='bold')
+    ax3.set_ylabel('Marker Density (markers/Mb)', fontweight='bold')
+    ax3.set_title('C. Chromosome-Specific Marker Density', fontweight='bold', loc='left')
+    ax3.legend(frameon=False, loc='upper right')
+    ax3.spines['top'].set_visible(False)
+    ax3.spines['right'].set_visible(False)
+
+    # Panel D: Violin plot of marker density distribution
+    ax4 = fig.add_subplot(gs[1, 1])
+
+    # Prepare data for violin plot
+    plot_data = []
+    for parent in df['parent'].unique():
+        for region in df['region_type'].unique():
+            subset = df[(df['parent'] == parent) & (df['region_type'] == region)]
+            if len(subset) > 0:
+                for density in subset['marker_density']:
+                    plot_data.append({
+                        'Parent': parent,
+                        'Region': region,
+                        'Density': density,
+                        'Group': f'{parent}\n{region}'
+                    })
+
+    plot_df = pd.DataFrame(plot_data)
+
+    # Create violin plot
+    groups = plot_df['Group'].unique()
+    positions = np.arange(len(groups))
+
+    parts = ax4.violinplot([plot_df[plot_df['Group'] == g]['Density'].values
+                            for g in groups],
+                           positions=positions, widths=0.7,
+                           showmeans=True, showmedians=True)
+
+    # Color the violins
+    for i, pc in enumerate(parts['bodies']):
+        group = groups[i]
+        if 'Col' in group:
+            color = colors['Col-0']
+        elif 'Ler' in group:
+            color = colors['Ler-0']
+        else:
+            color = '#888888'
+        pc.set_facecolor(color)
+        pc.set_alpha(0.6)
+        pc.set_edgecolor('black')
+        pc.set_linewidth(1.5)
+
+    ax4.set_xticks(positions)
+    ax4.set_xticklabels(groups, fontsize=8)
+    ax4.set_ylabel('Marker Density (markers/Mb)', fontweight='bold')
+    ax4.set_title('D. Marker Density Distribution', fontweight='bold', loc='left')
+    ax4.spines['top'].set_visible(False)
+    ax4.spines['right'].set_visible(False)
+    ax4.grid(axis='y', alpha=0.3, linestyle='--')
+
+    # Save figure in requested format(s)
+    formats_to_save = ['png', 'pdf', 'svg'] if format == 'all' else [format]
+
+    for fmt in formats_to_save:
+        output_file = f"{output_prefix}_density_analysis_publication.{fmt}"
+        dpi = 300 if fmt == 'png' else None
+        plt.savefig(output_file, dpi=dpi, bbox_inches='tight', format=fmt)
+        print(f"  Saved: {output_file}")
+
+    plt.close()
+
+    # ========== FIGURE 2: Genome-wide density landscape ==========
+    fig, axes = plt.subplots(len(df['parent'].unique()), 1,
+                             figsize=(16, 4 * len(df['parent'].unique())),
+                             sharex=True)
+
+    if len(df['parent'].unique()) == 1:
+        axes = [axes]
+
+    for idx, parent in enumerate(sorted(df['parent'].unique())):
+        ax = axes[idx]
+        parent_df = df[df['parent'] == parent].copy()
+        parent_df = parent_df.sort_values(['chromosome', 'region_type'])
+
+        x_pos = 0
+        x_labels = []
+        x_ticks = []
+        chr_boundaries = []
+
+        for chr_num in sorted(parent_df['chromosome'].unique(), key=int):
+            chr_df = parent_df[parent_df['chromosome'] == chr_num]
+
+            for _, row in chr_df.iterrows():
+                width = row['region_size_mb']
+                density = row['marker_density']
+
+                # Color by region type
+                color = colors.get(row['region_type'], '#888888')
+
+                ax.barh(0, width, left=x_pos, height=0.8,
+                       color=color, edgecolor='black', linewidth=1,
+                       alpha=0.8)
+
+                # Add density text
+                if width > 1:  # Only label if wide enough
+                    ax.text(x_pos + width/2, 0, f'{density:.0f}',
+                           ha='center', va='center', fontweight='bold',
+                           fontsize=8)
+
+                x_labels.append(f"{row['region_type']}")
+                x_ticks.append(x_pos + width/2)
+                x_pos += width
+
+            chr_boundaries.append(x_pos)
+
+        # Add chromosome boundaries
+        for boundary in chr_boundaries[:-1]:
+            ax.axvline(boundary, color='black', linewidth=2, linestyle='--')
+
+        ax.set_xlim(0, x_pos)
+        ax.set_ylim(-0.5, 0.5)
+        ax.set_yticks([0])
+        ax.set_yticklabels([parent], fontweight='bold', fontsize=12)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.tick_params(left=False)
+
+        if idx == len(df['parent'].unique()) - 1:
+            ax.set_xlabel('Genomic Position (Mb)', fontweight='bold')
+
+        # Add chromosome labels at the top
+        if idx == 0:
+            chr_centers = []
+            x_pos = 0
+            for chr_num in sorted(parent_df['chromosome'].unique(), key=int):
+                chr_df = parent_df[parent_df['chromosome'] == chr_num]
+                chr_width = chr_df['region_size_mb'].sum()
+                chr_centers.append((x_pos + chr_width/2, chr_num))
+                x_pos += chr_width
+
+            for x, chr_num in chr_centers:
+                ax.text(x, 0.6, f'Chr{chr_num}', ha='center', va='bottom',
+                       fontweight='bold', fontsize=10)
+
+    plt.suptitle('Genome-wide Marker Density Landscape',
+                fontweight='bold', fontsize=14, y=0.995)
+
+    # Add legend
+    from matplotlib.patches import Patch
+    legend_elements = [Patch(facecolor=colors['ARMS'], edgecolor='black',
+                            label='Chromosome Arms', alpha=0.8),
+                      Patch(facecolor=colors['CEN'], edgecolor='black',
+                            label='Centromere', alpha=0.8)]
+    axes[0].legend(handles=legend_elements, loc='upper right',
+                  frameon=False, fontsize=10)
+
+    # Save figure
+    for fmt in formats_to_save:
+        output_file = f"{output_prefix}_genome_landscape.{fmt}"
+        dpi = 300 if fmt == 'png' else None
+        plt.savefig(output_file, dpi=dpi, bbox_inches='tight', format=fmt)
+        print(f"  Saved: {output_file}")
+
+    plt.close()
+
+    # ========== FIGURE 3: Statistical comparison heatmap ==========
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Create pivot table for heatmap
+    pivot = df.pivot_table(values='marker_density',
+                          index=['parent', 'region_type'],
+                          columns='chromosome',
+                          fill_value=0)
+
+    # Create heatmap with annotations
+    sns.heatmap(pivot, annot=True, fmt='.0f', cmap='YlOrRd', ax=ax,
+               cbar_kws={'label': 'Marker Density (markers/Mb)'},
+               linewidths=1, linecolor='white',
+               annot_kws={'fontsize': 9, 'fontweight': 'bold'})
+
+    ax.set_xlabel('Chromosome', fontweight='bold')
+    ax.set_ylabel('Parent / Region', fontweight='bold')
+    ax.set_title('Marker Density Heatmap: Parent × Region × Chromosome',
+                fontweight='bold', pad=20)
+
+    # Improve tick labels
+    ax.set_xticklabels([f'Chr{c}' for c in pivot.columns], rotation=0)
+
+    plt.tight_layout()
+
+    # Save figure
+    for fmt in formats_to_save:
+        output_file = f"{output_prefix}_density_heatmap.{fmt}"
+        dpi = 300 if fmt == 'png' else None
+        plt.savefig(output_file, dpi=dpi, bbox_inches='tight', format=fmt)
+        print(f"  Saved: {output_file}")
+
+    plt.close()
+
+
 def generate_normalization_recommendations(df, parent_totals, output_prefix):
     """
     Generate recommendations for normalization strategies.
@@ -609,16 +983,30 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Analyze marker balance
+  # Basic analysis (counts and summary plots)
   python 16-analyze_marker_balance.py \\
       --cenhapmer-dir /path/to/cenhapmers/k31 \\
       --output-prefix results/marker_analysis/k31_balance
 
-  # The script will generate:
-  #   - k31_balance_marker_counts.tsv (raw counts)
-  #   - k31_balance_balance_summary.txt (metrics)
-  #   - k31_balance_marker_distribution.png (plots)
-  #   - k31_balance_normalization_recommendations.txt (guidance)
+  # Full analysis with publication-ready figures (requires BED files)
+  python 16-analyze_marker_balance.py \\
+      --cenhapmer-dir /path/to/cenhapmers/k31 \\
+      --output-prefix results/marker_analysis/k31_balance \\
+      --col-bed index/Col-0.bed \\
+      --ler-bed index/Ler-0.bed \\
+      --publication \\
+      --format all
+
+  # Generate outputs:
+  #   - *_marker_counts.tsv (raw counts with density)
+  #   - *_balance_summary.txt (statistical metrics)
+  #   - *_marker_distribution.png (basic plots)
+  #   - *_normalization_recommendations.txt (guidance)
+  #
+  # Publication-ready figures (with --publication):
+  #   - *_density_analysis_publication.[png/pdf/svg] (4-panel comprehensive)
+  #   - *_genome_landscape.[png/pdf/svg] (genome-wide density map)
+  #   - *_density_heatmap.[png/pdf/svg] (statistical heatmap)
         """
     )
 
@@ -630,6 +1018,10 @@ Examples:
                        help='Col-0 BED file with genomic region coordinates (for density calculation)')
     parser.add_argument('--ler-bed', required=False,
                        help='Ler-0 BED file with genomic region coordinates (for density calculation)')
+    parser.add_argument('--format', default='png', choices=['png', 'pdf', 'svg', 'all'],
+                       help='Output format for plots (default: png)')
+    parser.add_argument('--publication', action='store_true',
+                       help='Generate publication-ready figures with statistical annotations')
 
     args = parser.parse_args()
 
@@ -648,13 +1040,25 @@ Examples:
     # 3. Generate visualizations
     plot_marker_distribution(df, args.output_prefix)
 
-    # 4. Generate normalization recommendations
+    # 4. Generate publication-ready density visualizations if requested
+    if args.publication or (args.col_bed and args.ler_bed):
+        plot_marker_density_publication(df, args.output_prefix, format=args.format)
+
+    # 5. Generate normalization recommendations
     generate_normalization_recommendations(df, parent_totals, args.output_prefix)
 
     print("\n" + "="*70)
     print("ANALYSIS COMPLETE")
     print("="*70)
     print(f"\nAll results saved with prefix: {args.output_prefix}")
+
+    if args.publication or (args.col_bed and args.ler_bed):
+        print("\nPublication-ready figures generated:")
+        formats = ['png', 'pdf', 'svg'] if args.format == 'all' else [args.format]
+        for fmt in formats:
+            print(f"  - {args.output_prefix}_density_analysis_publication.{fmt}")
+            print(f"  - {args.output_prefix}_genome_landscape.{fmt}")
+            print(f"  - {args.output_prefix}_density_heatmap.{fmt}")
 
 
 if __name__ == '__main__':

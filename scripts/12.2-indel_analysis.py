@@ -56,33 +56,39 @@ def analyze_bam_file(bam_path, output_prefix):
     if not os.path.exists(bam_path):
         print(f"Warning: BAM file not found: {bam_path}")
         return None
-    
+
     try:
         bamfile = pysam.AlignmentFile(bam_path, "rb")
     except Exception as e:
         print(f"Error opening BAM file {bam_path}: {e}")
         return None
-    
+
     # Collect data for analysis
     indel_details = []
     total_reads = 0
     mapped_reads = 0
     reads_with_indels = set()
-    
+    total_mapped_bases = 0  # Track total aligned bases for normalization
+
     # Parse all reads
     for read in bamfile.fetch(until_eof=True):
         total_reads += 1
-        
+
         if read.is_unmapped:
             continue
         mapped_reads += 1
-        
+
+        # Calculate aligned bases (matches + mismatches, excluding indels/clips)
+        if read.cigartuples:
+            aligned_bases = sum(length for op, length in read.cigartuples if op == 0)  # M operations
+            total_mapped_bases += aligned_bases
+
         if read.cigartuples is None:
             continue
-            
+
         query_pos = 0
         ref_pos = read.reference_start
-        
+
         for op, length in read.cigartuples:
             if op == 0:  # Match or mismatch (M)
                 query_pos += length
@@ -112,9 +118,9 @@ def analyze_bam_file(bam_path, output_prefix):
                     query_pos += length
                 if op == 3:
                     ref_pos += length
-    
+
     bamfile.close()
-    
+
     # Generate detailed TSV output
     tsv_output = f"{output_prefix}_indel_positions.tsv"
     with open(tsv_output, "w", newline="") as f:
@@ -122,29 +128,35 @@ def analyze_bam_file(bam_path, output_prefix):
         writer.writeheader()
         for row in indel_details:
             writer.writerow(row)
-    
+
     # Calculate stats
     insertion_lengths = [x["Size"] for x in indel_details if x["Type"] == "Insertion"]
     deletion_lengths = [x["Size"] for x in indel_details if x["Type"] == "Deletion"]
     num_indels = len(indel_details)
     avg_indel_size = np.mean([x["Size"] for x in indel_details]) if num_indels > 0 else 0
-    indel_density = num_indels / mapped_reads if mapped_reads > 0 else 0
+
+    # Calculate density per mapped Mb (correct normalization)
+    mapped_mb = total_mapped_bases / 1_000_000
+    indel_density = num_indels / mapped_mb if mapped_mb > 0 else 0
+
     reads_with_indels_count = len(reads_with_indels)
-    
+
     print(f"Analysis complete for {output_prefix}:")
     print(f"  Total reads: {total_reads}")
     print(f"  Mapped reads: {mapped_reads}")
+    print(f"  Mapped bases: {total_mapped_bases:,} bp ({mapped_mb:.2f} Mb)")
     print(f"  Indels (>50bp): {num_indels}")
     print(f"  Reads with indels: {reads_with_indels_count}")
     print(f"  Insertions: {len(insertion_lengths)}")
     print(f"  Deletions: {len(deletion_lengths)}")
     print(f"  Average indel size: {avg_indel_size:.2f} bp")
-    print(f"  Indel density: {indel_density:.4f} indels/read")
+    print(f"  Indel density: {indel_density:.4f} indels/Mb")
     print(f"  Detailed results: {tsv_output}")
-    
+
     return {
         'total_reads': total_reads,
         'mapped_reads': mapped_reads,
+        'mapped_mb': round(mapped_mb, 2),
         'indels': num_indels,
         'insertions': len(insertion_lengths),
         'deletions': len(deletion_lengths),
@@ -169,6 +181,7 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
     """
     # Set seaborn style for cleaner plots
     sns.set_style("white")
+    # Color scheme: Green for insertions (#2ecc71), Red for deletions (#e74c3c)
 
     # Group results by mapping mode
     mapping_modes = {}
@@ -244,8 +257,8 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
                     max_size = max(all_indels)
                     bins = np.linspace(0, max_size, 50)
 
-                    ax.hist(insertions, bins=bins, color='#3498db', alpha=0.6,
-                           label=f'Ins (n={len(insertions)})', edgecolor='darkblue', linewidth=0.5)
+                    ax.hist(insertions, bins=bins, color='#2ecc71', alpha=0.6,
+                           label=f'Ins (n={len(insertions)})', edgecolor='darkgreen', linewidth=0.5)
                     ax.hist(deletions, bins=bins, color='#e74c3c', alpha=0.6,
                            label=f'Del (n={len(deletions)})', edgecolor='darkred', linewidth=0.5)
 
@@ -261,17 +274,18 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
                     ax.text(0.5, 0.5, 'No indels >50bp', ha='center', va='center',
                            transform=ax.transAxes, fontsize=10, style='italic', color='gray')
 
-                # STANDARDIZED AXES
+                # STANDARDIZED AXES with LOG SCALE
                 ax.set_xlim(0, global_max_size * 1.02)
-                ax.set_ylim(0, global_max_count_full)
+                ax.set_yscale('log')
+                ax.set_ylim(0.5, global_max_count_full * 2)  # Start from 0.5 for log scale
 
                 ax.set_title(f'Chr{chrom} - {region}', fontsize=10, fontweight='bold')
                 if col == 0:
-                    ax.set_ylabel('Count', fontsize=9)
+                    ax.set_ylabel('Count (log scale)', fontsize=9)
                 if row == 1:
                     ax.set_xlabel('Indel size (bp)', fontsize=9)
                 ax.tick_params(labelsize=8)
-                ax.grid(True, alpha=0.2, axis='y')
+                ax.grid(True, alpha=0.2, axis='y', which='both')  # Show both major and minor grid
 
             plt.tight_layout()
             plot_filename = os.path.join(output_dir, f'indel_histogram_{mode}_{background}_full.png')
@@ -318,26 +332,26 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
                 max_size = max(all_indels)
                 bins = np.linspace(0, max_size, 50)
 
-                # Plot with distinct colors (sv-satellite-analyzer style)
+                # Plot with consistent colors - all insertions green, all deletions red
                 if data['Col']['insertions']:
                     ax.hist(data['Col']['insertions'], bins=bins,
-                           color='#3498db', alpha=0.5, edgecolor='darkblue', linewidth=0.5,
+                           color='#2ecc71', alpha=0.5, edgecolor='darkgreen', linewidth=0.5,
                            label=f"Col-Ins (n={len(data['Col']['insertions'])})")
 
                 if data['Col']['deletions']:
                     ax.hist(data['Col']['deletions'], bins=bins,
-                           color='#85c1e9', alpha=0.5, edgecolor='darkblue', linewidth=0.5,
+                           color='#e74c3c', alpha=0.5, edgecolor='darkred', linewidth=0.5,
                            hatch='///', label=f"Col-Del (n={len(data['Col']['deletions'])})")
 
                 if data['Ler']['insertions']:
                     ax.hist(data['Ler']['insertions'], bins=bins,
-                           color='#e74c3c', alpha=0.5, edgecolor='darkred', linewidth=0.5,
-                           label=f"Ler-Ins (n={len(data['Ler']['insertions'])})")
+                           color='#2ecc71', alpha=0.5, edgecolor='darkgreen', linewidth=0.5,
+                           hatch='\\\\\\', label=f"Ler-Ins (n={len(data['Ler']['insertions'])})")
 
                 if data['Ler']['deletions']:
                     ax.hist(data['Ler']['deletions'], bins=bins,
-                           color='#f1948a', alpha=0.5, edgecolor='darkred', linewidth=0.5,
-                           hatch='///', label=f"Ler-Del (n={len(data['Ler']['deletions'])})")
+                           color='#e74c3c', alpha=0.5, edgecolor='darkred', linewidth=0.5,
+                           hatch='xxx', label=f"Ler-Del (n={len(data['Ler']['deletions'])})")
 
                 # Add 178bp multiple reference lines
                 for i in range(1, int(max_size / 178) + 2):
@@ -351,17 +365,18 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
                 ax.text(0.5, 0.5, 'No indels >50bp', ha='center', va='center',
                        transform=ax.transAxes, fontsize=10, style='italic', color='gray')
 
-            # STANDARDIZED AXES
+            # STANDARDIZED AXES with LOG SCALE
             ax.set_xlim(0, global_max_size * 1.02)
-            ax.set_ylim(0, global_max_count_full)
+            ax.set_yscale('log')
+            ax.set_ylim(0.5, global_max_count_full * 2)  # Start from 0.5 for log scale
 
             ax.set_title(f'Chr{chrom} - {region}', fontsize=10, fontweight='bold')
             if col == 0:
-                ax.set_ylabel('Count', fontsize=9)
+                ax.set_ylabel('Count (log scale)', fontsize=9)
             if row == 1:
                 ax.set_xlabel('Indel size (bp)', fontsize=9)
             ax.tick_params(labelsize=8)
-            ax.grid(True, alpha=0.2, axis='y')
+            ax.grid(True, alpha=0.2, axis='y', which='both')  # Show both major and minor grid
 
         plt.tight_layout()
         plot_filename = os.path.join(output_dir, f'indel_histogram_{mode}_combined_full.png')
@@ -410,25 +425,26 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
             if all_indels:
                 bins = np.linspace(0, 1000, 50)
 
+                # Consistent colors - all insertions green, all deletions red
                 if data['Col']['insertions']:
                     ax.hist(data['Col']['insertions'], bins=bins,
-                           color='#3498db', alpha=0.5, edgecolor='darkblue', linewidth=0.5,
+                           color='#2ecc71', alpha=0.5, edgecolor='darkgreen', linewidth=0.5,
                            label=f"Col-Ins (n={len(data['Col']['insertions'])})")
 
                 if data['Col']['deletions']:
                     ax.hist(data['Col']['deletions'], bins=bins,
-                           color='#85c1e9', alpha=0.5, edgecolor='darkblue', linewidth=0.5,
+                           color='#e74c3c', alpha=0.5, edgecolor='darkred', linewidth=0.5,
                            hatch='///', label=f"Col-Del (n={len(data['Col']['deletions'])})")
 
                 if data['Ler']['insertions']:
                     ax.hist(data['Ler']['insertions'], bins=bins,
-                           color='#e74c3c', alpha=0.5, edgecolor='darkred', linewidth=0.5,
-                           label=f"Ler-Ins (n={len(data['Ler']['insertions'])})")
+                           color='#2ecc71', alpha=0.5, edgecolor='darkgreen', linewidth=0.5,
+                           hatch='\\\\\\', label=f"Ler-Ins (n={len(data['Ler']['insertions'])})")
 
                 if data['Ler']['deletions']:
                     ax.hist(data['Ler']['deletions'], bins=bins,
-                           color='#f1948a', alpha=0.5, edgecolor='darkred', linewidth=0.5,
-                           hatch='///', label=f"Ler-Del (n={len(data['Ler']['deletions'])})")
+                           color='#e74c3c', alpha=0.5, edgecolor='darkred', linewidth=0.5,
+                           hatch='xxx', label=f"Ler-Del (n={len(data['Ler']['deletions'])})")
 
                 # Add 178bp, 356bp, 534bp, 712bp, 890bp reference lines
                 for i in range(1, 6):
@@ -444,17 +460,18 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
                 ax.text(0.5, 0.5, 'No indels 50-1000bp', ha='center', va='center',
                        transform=ax.transAxes, fontsize=10, style='italic', color='gray')
 
-            # STANDARDIZED AXES (zoomed)
+            # STANDARDIZED AXES (zoomed) with LOG SCALE
             ax.set_xlim(0, 1000)
-            ax.set_ylim(0, global_max_count_zoom)
+            ax.set_yscale('log')
+            ax.set_ylim(0.5, global_max_count_zoom * 2)  # Start from 0.5 for log scale
 
             ax.set_title(f'Chr{chrom} - {region}', fontsize=10, fontweight='bold')
             if col == 0:
-                ax.set_ylabel('Count', fontsize=9)
+                ax.set_ylabel('Count (log scale)', fontsize=9)
             if row == 1:
                 ax.set_xlabel('Indel size (bp)', fontsize=9)
             ax.tick_params(labelsize=8)
-            ax.grid(True, alpha=0.2, axis='y')
+            ax.grid(True, alpha=0.2, axis='y', which='both')  # Show both major and minor grid
 
         plt.tight_layout()
         plot_filename = os.path.join(output_dir, f'indel_histogram_{mode}_combined_zoom.png')
@@ -466,10 +483,10 @@ def create_combined_plots_by_mapping_mode(results_data, output_dir):
 def create_comparative_plots(results_df, output_dir):
     """
     Create comprehensive comparative plots for indel analysis (>50bp).
-    Uses clean styling inspired by sv-satellite-analyzer.
+    Uses clean styling with consistent colors: green for insertions, red for deletions.
     """
     sns.set_style("white")
-    sns.set_palette(["#3498db", "#e74c3c"])
+    sns.set_palette(["#2ecc71", "#e74c3c"])
     
     fig = plt.figure(figsize=(18, 10))
     
@@ -478,8 +495,9 @@ def create_comparative_plots(results_df, output_dir):
     region_data = results_df.groupby('region')['indel_density'].agg(['mean', 'std']).reset_index()
     ax1.bar(region_data['region'], region_data['mean'], yerr=region_data['std'], capsize=5, alpha=0.7)
     ax1.set_title('Average Indel Density: ARMS vs CEN', fontweight='bold')
-    ax1.set_ylabel('Indels per read (>50bp)')
-    ax1.grid(True, alpha=0.3, axis='y')
+    ax1.set_ylabel('Indels per Mb (>50bp)')
+    ax1.set_yscale('log')
+    ax1.grid(True, alpha=0.3, axis='y', which='both')
 
     # Average indel size
     ax2 = plt.subplot(2, 4, 2)
@@ -494,22 +512,24 @@ def create_comparative_plots(results_df, output_dir):
     background_data = results_df.groupby('background')['indel_density'].agg(['mean', 'std']).reset_index()
     ax3.bar(background_data['background'], background_data['mean'], yerr=background_data['std'], capsize=5, alpha=0.7)
     ax3.set_title('Average Indel Density: Col vs Ler', fontweight='bold')
-    ax3.set_ylabel('Indels per read (>50bp)')
-    ax3.grid(True, alpha=0.3, axis='y')
+    ax3.set_ylabel('Indels per Mb (>50bp)')
+    ax3.set_yscale('log')
+    ax3.grid(True, alpha=0.3, axis='y', which='both')
 
     # Chromosome comparison
     ax4 = plt.subplot(2, 4, 4)
     chr_data = results_df.groupby('chromosome')['indel_density'].agg(['mean', 'std']).reset_index()
     ax4.bar(chr_data['chromosome'], chr_data['mean'], yerr=chr_data['std'], capsize=5, alpha=0.7)
     ax4.set_title('Average Indel Density by Chromosome', fontweight='bold')
-    ax4.set_ylabel('Indels per read (>50bp)')
+    ax4.set_ylabel('Indels per Mb (>50bp)')
     ax4.set_xlabel('Chromosome')
-    ax4.grid(True, alpha=0.3, axis='y')
+    ax4.set_yscale('log')
+    ax4.grid(True, alpha=0.3, axis='y', which='both')
     
     # Heatmap of indel density by region and chromosome
     ax5 = plt.subplot(2, 4, 5)
     pivot_data = results_df.pivot_table(values='indel_density', index='region', columns='chromosome', aggfunc='mean')
-    sns.heatmap(pivot_data, annot=True, fmt='.4f', cmap='YlOrRd', ax=ax5, cbar_kws={'label': 'Indels per read'})
+    sns.heatmap(pivot_data, annot=True, fmt='.2f', cmap='YlOrRd', ax=ax5, cbar_kws={'label': 'Indels per Mb'})
     ax5.set_title('Indel Density Heatmap\n(Region vs Chromosome)', fontweight='bold')
     
     # Insertion vs Deletion proportions
@@ -517,7 +537,7 @@ def create_comparative_plots(results_df, output_dir):
     total_ins = results_df['insertions'].sum()
     total_del = results_df['deletions'].sum()
     ax6.pie([total_ins, total_del], labels=['Insertions', 'Deletions'], autopct='%1.1f%%',
-           startangle=90, colors=['#3498db', '#e74c3c'])
+           startangle=90, colors=['#2ecc71', '#e74c3c'])
     ax6.set_title('Overall Insertion vs Deletion (>50bp)', fontweight='bold')
     
     # Indel density by mapping mode
@@ -526,9 +546,10 @@ def create_comparative_plots(results_df, output_dir):
         mode_data = results_df.groupby('mapping_mode')['indel_density'].agg(['mean', 'std']).reset_index()
         ax7.bar(mode_data['mapping_mode'], mode_data['mean'], yerr=mode_data['std'], capsize=5, alpha=0.7)
         ax7.set_title('Indel Density by Mapping Mode', fontweight='bold')
-        ax7.set_ylabel('Indels per read (>50bp)')
+        ax7.set_ylabel('Indels per Mb (>50bp)')
         ax7.set_xlabel('Mapping Mode')
-        ax7.grid(True, alpha=0.3, axis='y')
+        ax7.set_yscale('log')
+        ax7.grid(True, alpha=0.3, axis='y', which='both')
         plt.setp(ax7.xaxis.get_majorticklabels(), rotation=45, ha='right')
     
     # Total indels by haplotype
@@ -551,18 +572,22 @@ def main():
     if len(sys.argv) != 3:
         print("Usage: python3 12.2-indel_analysis.py <sequences_dir> <output_results.tsv>")
         sys.exit(1)
-    
+
     sequences_dir = sys.argv[1]
     output_results = sys.argv[2]
-    
+
     mappings_dir = os.path.join(sequences_dir, "mappings")
-    
+    plots_dir = os.path.join(sequences_dir, "plots")
+
+    # Create plots directory
+    os.makedirs(plots_dir, exist_ok=True)
+
     if not os.path.exists(mappings_dir):
         print(f"Error: Mappings directory not found: {mappings_dir}")
         with open(output_results, 'w') as f:
-            f.write("haplotype\tmapping_mode\ttotal_reads\tmapped_reads\tindels\tinsertions\tdeletions\tavg_indel_size\tindel_density\treads_with_indels\tbackground\tregion\tchromosome\n")
+            f.write("haplotype\tmapping_mode\ttotal_reads\tmapped_reads\tmapped_mb\tindels\tinsertions\tdeletions\tavg_indel_size\tindel_density\treads_with_indels\tbackground\tregion\tchromosome\n")
         sys.exit(0)
-    
+
     print("=== Starting comprehensive indel analysis ===")
     results = []
     results_with_lengths = []  # Keep indel length data for plotting
@@ -582,7 +607,7 @@ def main():
             if stats and hap_info:
                 # Store for TSV output (without length arrays)
                 result_entry = {**hap_info, 'haplotype': haplotype, 'mapping_mode': mapping_mode}
-                for key in ['total_reads', 'mapped_reads', 'indels', 'insertions', 'deletions', 
+                for key in ['total_reads', 'mapped_reads', 'mapped_mb', 'indels', 'insertions', 'deletions',
                            'avg_indel_size', 'indel_density', 'reads_with_indels']:
                     result_entry[key] = stats[key]
                 results.append(result_entry)
@@ -594,12 +619,12 @@ def main():
     results_df = pd.DataFrame(results)
     results_df.to_csv(output_results, sep='\t', index=False)
     
-    # Generate plots
+    # Generate plots in dedicated plots directory
     if results_with_lengths:
-        create_combined_plots_by_mapping_mode(results_with_lengths, mappings_dir)
-        
+        create_combined_plots_by_mapping_mode(results_with_lengths, plots_dir)
+
         if not results_df.empty:
-            create_comparative_plots(results_df, mappings_dir)
+            create_comparative_plots(results_df, plots_dir)
     
     print(f"\n=== Comprehensive indel analysis complete ===")
     print(f"Summary results written to: {output_results}")

@@ -32,13 +32,16 @@ plt.rcParams['figure.dpi'] = 300
 sns.set_style("white")
 
 # Color scheme for haplotypes
+# Dark = ARMS, Light = CEN
 COLORS = {
-    # Col haplotypes (blue shades)
-    'CA1': '#0066CC', 'CA2': '#0077DD', 'CA3': '#0088EE', 'CA4': '#0099FF', 'CA5': '#00AAFF',
-    # Ler haplotypes (orange shades)
-    'LA1': '#FF6600', 'LA2': '#FF7711', 'LA3': '#FF8822', 'LA4': '#FF9933', 'LA5': '#FFAA44',
-    # Complex (gray shades)
-    'LC1': '#666666', 'LC2': '#777777', 'LC3': '#888888', 'LC4': '#999999', 'LC5': '#AAAAAA',
+    # Col ARMS - dark blue
+    'CA1': '#1565C0', 'CA2': '#1565C0', 'CA3': '#1565C0', 'CA4': '#1565C0', 'CA5': '#1565C0',
+    # Col CEN - light blue
+    'CC1': '#64B5F6', 'CC2': '#64B5F6', 'CC3': '#64B5F6', 'CC4': '#64B5F6', 'CC5': '#64B5F6',
+    # Ler ARMS - dark orange
+    'LA1': '#E65100', 'LA2': '#E65100', 'LA3': '#E65100', 'LA4': '#E65100', 'LA5': '#E65100',
+    # Ler CEN - light orange
+    'LC1': '#FFB74D', 'LC2': '#FFB74D', 'LC3': '#FFB74D', 'LC4': '#FFB74D', 'LC5': '#FFB74D',
     # Unassigned (light gray)
     'UNASSIGNED': '#E0E0E0'
 }
@@ -236,15 +239,16 @@ def plot_read_structures(segments_df, output_prefix, max_reads=200,
                 'red dashes = unassigned regions)',
                 fontsize=14, fontweight='bold')
 
-    # Add legend
+    # Add legend (4 categories: ARMS vs CEN for each parent)
     legend_elements = [
-        patches.Patch(facecolor='#0088EE', edgecolor='black', label='Col haplotypes'),
-        patches.Patch(facecolor='#FF8822', edgecolor='black', label='Ler haplotypes'),
-        patches.Patch(facecolor='#888888', edgecolor='black', label='Complex'),
+        patches.Patch(facecolor='#1565C0', edgecolor='black', label='Col-0 ARMS'),
+        patches.Patch(facecolor='#64B5F6', edgecolor='black', label='Col-0 CEN'),
+        patches.Patch(facecolor='#E65100', edgecolor='black', label='Ler-0 ARMS'),
+        patches.Patch(facecolor='#FFB74D', edgecolor='black', label='Ler-0 CEN'),
         patches.Patch(facecolor=COLORS['UNASSIGNED'], edgecolor='red',
-                     linestyle='--', alpha=0.5, label='Unassigned regions')
+                     linestyle='--', alpha=0.5, label='Unassigned')
     ]
-    ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=9, framealpha=0.95, ncol=2)
 
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)

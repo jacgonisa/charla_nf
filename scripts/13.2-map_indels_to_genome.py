@@ -61,6 +61,9 @@ def get_original_read_mapping(bam_file, read_id):
     """
     Get the original mapping location of a read from the BAM file.
     Returns dict with chromosome, start, end, or None if not found.
+
+    NOTE: This is the OLD slow version kept for compatibility.
+    Use get_all_read_mappings_from_bam() for batch processing!
     """
     if not os.path.exists(bam_file):
         return None
@@ -85,6 +88,46 @@ def get_original_read_mapping(bam_file, read_id):
 
     bamfile.close()
     return None
+
+
+def get_all_read_mappings_from_bam(bam_file, read_ids_set):
+    """
+    OPTIMIZED: Get mappings for multiple reads from a BAM file in one pass.
+
+    Args:
+        bam_file: Path to BAM file
+        read_ids_set: Set of read IDs to extract mappings for
+
+    Returns:
+        dict mapping read_id -> {'chromosome', 'start', 'end', 'mapping_quality'}
+    """
+    mappings = {}
+
+    if not os.path.exists(bam_file):
+        return mappings
+
+    try:
+        bamfile = pysam.AlignmentFile(bam_file, "rb")
+    except Exception as e:
+        print(f"  [WARNING] Could not open BAM file {bam_file}: {e}")
+        return mappings
+
+    # Single pass through BAM file
+    for read in bamfile.fetch(until_eof=True):
+        if read.query_name in read_ids_set:
+            if not read.is_unmapped:
+                mappings[read.query_name] = {
+                    'chromosome': read.reference_name,
+                    'start': read.reference_start,
+                    'end': read.reference_end,
+                    'mapping_quality': read.mapping_quality
+                }
+                # Stop early if we found all reads
+                if len(mappings) == len(read_ids_set):
+                    break
+
+    bamfile.close()
+    return mappings
 
 
 def run_minimap2(query_fasta, reference_fasta, output_paf, threads=8):
@@ -841,23 +884,44 @@ def main():
     for (parent, mode), indels in indels_by_parent_mode.items():
         print(f"  - {parent} + {mode}: {len(indels)} indels")
 
-    # Get original read mappings for all indels
+    # Get original read mappings for all indels - OPTIMIZED VERSION
     print(f"\n[INFO] Retrieving original read mapping locations...")
     mappings_dir = os.path.join(nonhybrid_dir, "mappings")
     original_mappings_by_indel = {}
 
+    # Group indels by BAM file to minimize file I/O
+    indels_by_bam = {}
     for _, row in catalog_df.iterrows():
-        indel_id = row['indel_id']
-        read_id = row['read_id']
         source_bam = row['source_bam']
-
         bam_path = os.path.join(mappings_dir, source_bam)
-        original_mapping = get_original_read_mapping(bam_path, read_id)
 
-        if original_mapping:
-            original_mappings_by_indel[indel_id] = original_mapping
+        if bam_path not in indels_by_bam:
+            indels_by_bam[bam_path] = []
+        indels_by_bam[bam_path].append(row)
 
-    print(f"[SUCCESS] Retrieved original mappings for {len(original_mappings_by_indel)} indels")
+    print(f"[INFO] Processing {len(indels_by_bam)} unique BAM files...")
+
+    # Process each BAM file once
+    for bam_idx, (bam_path, indel_rows) in enumerate(indels_by_bam.items(), 1):
+        # Get all read IDs for this BAM file
+        read_ids_to_find = {row['read_id'] for row in indel_rows}
+
+        print(f"  [{bam_idx}/{len(indels_by_bam)}] Processing {os.path.basename(bam_path)} ({len(read_ids_to_find)} reads)...")
+
+        # Single pass through BAM file to get all mappings
+        read_mappings = get_all_read_mappings_from_bam(bam_path, read_ids_to_find)
+
+        # Map back to indel IDs
+        for row in indel_rows:
+            indel_id = row['indel_id']
+            read_id = row['read_id']
+
+            if read_id in read_mappings:
+                original_mappings_by_indel[indel_id] = read_mappings[read_id]
+
+        print(f"      Found mappings for {len(read_mappings)}/{len(read_ids_to_find)} reads")
+
+    print(f"[SUCCESS] Retrieved original mappings for {len(original_mappings_by_indel)}/{len(catalog_df)} indels")
 
     # Map each group to its corresponding parent genome
     mappings_by_indel = {}
