@@ -7,3 +7,17 @@ testing/
 testing*
 *.pyc
 null/
+
+# Rust build artifacts
+**/target/debug/
+**/target/release/deps/
+**/target/release/build/
+**/target/release/.fingerprint/
+**/target/release/incremental/
+**/*.d
+**/*.rlib
+**/*.rmeta
+
+# Keep only the final release binaries
+!**/target/release/curate_profiles
+!**/target/release/hybrid_profile_toolkit
