@@ -30,6 +30,12 @@ include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles
 include { SEGMENT_READS } from '../modules/local/segment_reads.nf'
 include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
 include { PLOT_CROSSOVER_MAP } from '../modules/local/plot_crossover_map.nf'
+include { CROSSOVER_STATS as CROSSOVER_STATS_PROFILES } from '../modules/local/crossover_stats.nf'
+include { CROSSOVER_STATS as CROSSOVER_STATS_MAPPING } from '../modules/local/crossover_stats.nf'
+include { CURATE_CONFIDENT_READS } from '../modules/local/curate_confident_reads.nf'
+include { CREATE_COMPREHENSIVE_ALIGNMENT_OUTPUT } from '../modules/local/create_comprehensive_alignment_output.nf'
+include { PLOT_CONFIDENT_READS } from '../modules/local/plot_confident_reads.nf'
+include { KARYOPLOT_CROSSOVERS } from '../modules/local/karyoplot_crossovers.nf'
 include { NON_HYBRID_READS_ANALYSIS } from '../modules/local/non_hybrid_reads_analysis.nf'
 
 /*
@@ -325,6 +331,25 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         readmer_cutoff
     )
 
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CROSSOVER STATISTICS - STAGE 1: K-MER PROFILE ANALYSIS (Before Mapping)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+    log.info "[CHARLA_NF] Generating crossover statistics (k-mer profile stage)"
+
+    // Run crossover statistics on k-mer profiles (without cowidths)
+    crossover_stats_profiles_output = CROSSOVER_STATS_PROFILES(
+        [],  // No cowidths/bed files at this stage
+        curate_hybrid_profiles_output.final_table,
+        params.threshold ?: 50,
+        params.sample_id,
+        "profiles",
+        params.parent1_name,
+        params.parent2_name
+    )
+
     /*
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         Branch E: SEGMENT READS
@@ -357,8 +382,14 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         error "ERROR: The --reference_genomes_dir parameter must be provided for mapping analysis."
     }
     
-    ch_reference_genomes = Channel.fromPath(params.reference_genomes_dir, type: 'dir')
-        .ifEmpty { error "❌ No reference genome directories found in: ${params.reference_genomes_dir}" }
+    // Verify the reference genomes directory exists
+    def ref_dir = file(params.reference_genomes_dir)
+    if (!ref_dir.exists() || !ref_dir.isDirectory()) {
+        error "❌ Reference genomes directory does not exist or is not a directory: ${params.reference_genomes_dir}"
+    }
+
+    // Create a channel with the directory path
+    ch_reference_genomes = Channel.value(ref_dir)
 
     // Debug: Check what SEGMENT_READS produced
     segment_reads_output.segmented_fasta.view { "Available segmented_fasta: $it" }
@@ -496,6 +527,207 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         )
     }
 
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CROSSOVER STATISTICS - STAGE 2: MAPPING ANALYSIS (After Mapping)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+    log.info "[CHARLA_NF] Generating crossover statistics with width analysis (mapping stage)"
+
+    // Get all plotting crossover files (cowidths and bed_of_best.tsv)
+    plotting_files = mapping_analysis_output.plotting_results
+        .flatten()
+        .filter { it.name.endsWith('.cowidths') || it.name.endsWith('.bed_of_best.tsv') }
+        .collect()
+
+    // Get the curated profiles file from curate_hybrid
+    curated_profiles_file = curate_hybrid_profiles_output.final_table
+
+    // Run crossover statistics with cowidths and bed files
+    crossover_stats_mapping_output = CROSSOVER_STATS_MAPPING(
+        plotting_files,
+        curated_profiles_file,
+        params.threshold ?: 50,
+        params.sample_id,
+        "mapping",
+        params.parent1_name,
+        params.parent2_name
+    )
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CURATE CONFIDENT READS (After Crossover Statistics)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+    log.info "[CHARLA_NF] Curating confident recombinant reads with segment count filtering"
+
+    // Get specific files from mapping analysis
+    cowidths = mapping_analysis_output.cowidth_files
+    bed_of_best = plotting_files.flatten().filter { it.name.contains("bed_of_best.tsv") }
+
+    // Run curation module (PAF filtering disabled to avoid file staging issues)
+    curated_confident_reads_output = CURATE_CONFIDENT_READS(
+        cowidths,
+        bed_of_best,
+        curated_profiles_file,
+        params.threshold ?: 50,
+        params.sample_id,
+        params.parent1_name,
+        params.parent2_name
+    )
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    CREATE COMPREHENSIVE ALIGNMENT OUTPUT (Addressing Collaborator Feedback)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+    log.info "[CHARLA_NF] Creating comprehensive alignment output with PAF headers and coordinate data"
+
+    // Get segment PAF files from mapping analysis
+    segment_paf_b73 = mapping_analysis_output.segment_paf_parent1.first()
+    segment_paf_mo17 = mapping_analysis_output.segment_paf_parent2.first()
+
+    // Get curated confident reads directory
+    curated_dir = curated_confident_reads_output.confident_bed_files.first().parent
+
+    // Create comprehensive alignment output
+    comprehensive_alignment_output = CREATE_COMPREHENSIVE_ALIGNMENT_OUTPUT(
+        curated_dir,
+        segment_paf_b73,
+        segment_paf_mo17,
+        params.sample_id
+    )
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    PLOT CONFIDENT READS (Comprehensive Visualization)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+    log.info "[CHARLA_NF] Generating comprehensive plots for confident reads"
+
+    // Get confident BED files from curation output
+    confident_bed_sco = curated_confident_reads_output.confident_bed_files
+        .flatten()
+        .filter { it.name.contains("_confident_SCO.bed") }
+        .first()
+
+    confident_bed_nco = curated_confident_reads_output.confident_bed_files
+        .flatten()
+        .filter { it.name.contains("_confident_NCO.bed") }
+        .first()
+
+    confident_bed_gcco = curated_confident_reads_output.confident_bed_files
+        .flatten()
+        .filter { it.name.contains("_confident_GC-CO.bed") }
+        .first()
+
+    // Get PAF files from mapping analysis
+    parent1_paf_chr = plotting_files
+        .flatten()
+        .filter { it.name.contains("summary_mm_sr_CHR_against${params.parent1_name}.paf") }
+        .first()
+
+    parent2_paf_chr = plotting_files
+        .flatten()
+        .filter { it.name.contains("summary_mm_sr_CHR_against${params.parent2_name}.paf") }
+        .first()
+
+    // Create genome index channels (use different variable names to avoid collision)
+    def parent1_fai_plot_path = file("${params.reference_genomes_dir}/${params.parent1_name}.fa.fai")
+    def parent2_fai_plot_path = file("${params.reference_genomes_dir}/${params.parent2_name}.fa.fai")
+
+    // Check if files exist and log warnings, but run module anyway
+    if (!parent1_fai_plot_path.exists()) {
+        log.warn "⚠️  Parent1 genome index not found: ${params.reference_genomes_dir}/${params.parent1_name}.fa.fai"
+    }
+    if (!parent2_fai_plot_path.exists()) {
+        log.warn "⚠️  Parent2 genome index not found: ${params.reference_genomes_dir}/${params.parent2_name}.fa.fai"
+    }
+
+    // Create channels
+    parent1_fai_plot = Channel.fromPath(parent1_fai_plot_path)
+    parent2_fai_plot = Channel.fromPath(parent2_fai_plot_path)
+
+    // Centromere BED file (optional)
+    def cen_bed_val = (params.parent1_bed && file(params.parent1_bed).exists()) ? file(params.parent1_bed) : "NO_FILE"
+
+    // Run plotting module unconditionally - R script handles missing files
+    confident_plots_output = PLOT_CONFIDENT_READS(
+        confident_bed_sco,
+        confident_bed_nco,
+        confident_bed_gcco,
+        curated_confident_reads_output.confident_read_ids,
+        parent1_paf_chr,
+        parent2_paf_chr,
+        parent1_fai_plot,
+        parent2_fai_plot,
+        cowidths,
+        curated_profiles_file,
+        params.threshold ?: 50,
+        params.sample_id,
+        params.parent1_name,
+        params.parent2_name,
+        cen_bed_val
+    )
+
+/*
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    KARYOPLOT VISUALIZATION (After Mapping)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+    log.info "[CHARLA_NF] Generating karyotype plot of crossovers"
+
+    // NOTE: This requires genome FASTA index (.fai) files for both parents
+    // These should be located in the reference_genomes_dir with the naming convention:
+    //   ${parent1_name}.fa.fai and ${parent2_name}.fa.fai
+    // Generate .fai files using: samtools faidx <genome.fa>
+
+    // Get the bed_of_best.tsv file from plotting_files
+    bed_file = plotting_files
+        .flatten()
+        .filter { it.name.endsWith('.bed_of_best.tsv') }
+        .first()
+
+    // Create genome index file channels
+    // Check if .fai files exist before creating channels
+    def parent1_fai_karyo_path = file("${params.reference_genomes_dir}/${params.parent1_name}.fa.fai")
+    def parent2_fai_karyo_path = file("${params.reference_genomes_dir}/${params.parent2_name}.fa.fai")
+
+    def both_fai_exist_karyo = parent1_fai_karyo_path.exists() && parent2_fai_karyo_path.exists()
+
+    if (!parent1_fai_karyo_path.exists()) {
+        log.warn "⚠️  Parent1 genome index not found: ${params.reference_genomes_dir}/${params.parent1_name}.fa.fai"
+        log.warn "⚠️  Skipping karyoplot generation. Generate with: samtools faidx ${params.parent1_name}.fa"
+    }
+
+    if (!parent2_fai_karyo_path.exists()) {
+        log.warn "⚠️  Parent2 genome index not found: ${params.reference_genomes_dir}/${params.parent2_name}.fa.fai"
+        log.warn "⚠️  Skipping karyoplot generation. Generate with: samtools faidx ${params.parent2_name}.fa"
+    }
+
+    // Only run karyoplot if both .fai files exist
+    if (both_fai_exist_karyo) {
+        parent1_fai = Channel.fromPath(parent1_fai_karyo_path)
+        parent2_fai = Channel.fromPath(parent2_fai_karyo_path)
+
+        karyoplot_output = KARYOPLOT_CROSSOVERS(
+            bed_file,
+            parent1_fai,
+            parent2_fai,
+            curated_profiles_file,
+            params.threshold ?: 50,
+            params.sample_id,
+            params.parent1_name,
+            params.parent2_name
+        )
+    } else {
+        log.info "⏩ Skipping karyoplot generation (genome index files not found)"
+    }
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

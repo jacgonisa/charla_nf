@@ -7,3 +7,22 @@ testing/
 testing*
 *.pyc
 null/
+
+# Build artifacts
+target/
+rust/*/target/
+
+# Backup and temporary files
+*.bak
+*.broken
+
+# Generated data
+cenhapmer_generation/genomes_split/
+
+# Private communications and notes
+docs/EMAIL_TO_COLLABORATORS.md
+docs/COLLABORATOR_FEEDBACK_RESPONSE.md
+docs/QUESTION_FOR_COLLABORATORS.md
+docs/COORDINATE_HANDLING_EXPLANATION.md
+docs/PREMAPPING_VS_POSTMAPPING.md
+docs/KARYOPLOTER_SETUP.md

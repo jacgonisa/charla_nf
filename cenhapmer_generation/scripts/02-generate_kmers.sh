@@ -39,6 +39,7 @@ KMER_SIZES="21,31,41"
 MIN_COUNT=1
 MAX_COUNT=100000000
 THREADS=4
+SKIP_CEN=false
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
@@ -83,6 +84,10 @@ while [[ $# -gt 0 ]]; do
             THREADS="$2"
             shift 2
             ;;
+        --skip-cen)
+            SKIP_CEN=true
+            shift
+            ;;
         --help)
             head -n 35 "$0" | grep "^#" | sed 's/^# //'
             exit 0
@@ -114,6 +119,7 @@ echo "K-mer sizes:        ${K_SIZES_ARRAY[@]}"
 echo "Min count:          $MIN_COUNT"
 echo "Max count:          $MAX_COUNT"
 echo "Threads:            $THREADS"
+echo "Skip centromeres:   $SKIP_CEN"
 echo "======================================="
 echo ""
 
@@ -131,71 +137,111 @@ for ACCESSION in "$PARENT1" "$PARENT2"; do
         echo "  🧬 Processing chromosome: $CHR"
 
         CHR_DIR="${ACCESSION_DIR}/${CHR}"
-        mkdir -p "${CHR_DIR}/CEN"
-        mkdir -p "${CHR_DIR}/ARMS"
 
-        # Input FASTA paths
-        CEN_FILE="${INPUT_DIR}/${ACCESSION}/CEN/${ACCESSION}_CEN_${CHR}.fa"
-        ARMS_FILE="${INPUT_DIR}/${ACCESSION}/ARMS/${ACCESSION}_ARMS_${CHR}.fa"
+        if [[ "$SKIP_CEN" == "true" ]]; then
+            # Skip-CEN mode: Process whole chromosomes
+            mkdir -p "${CHR_DIR}/CHR"
 
-        echo "    📂 CEN file:  $CEN_FILE"
-        echo "    📂 ARMS file: $ARMS_FILE"
+            CHR_FILE="${INPUT_DIR}/${ACCESSION}/CHR/${ACCESSION}_CHR_${CHR}.fa"
+            echo "    📂 CHR file:  $CHR_FILE"
 
-        # Validate input files
-        if [[ ! -f "$CEN_FILE" ]]; then
-            echo "    ⚠️  Warning: CEN file not found, skipping"
-            continue
-        fi
-        if [[ ! -f "$ARMS_FILE" ]]; then
-            echo "    ⚠️  Warning: ARMS file not found, skipping"
-            continue
-        fi
-
-        # Check if files are empty
-        if [[ ! -s "$CEN_FILE" ]]; then
-            echo "    ⚠️  Warning: CEN file is empty, skipping"
-        fi
-        if [[ ! -s "$ARMS_FILE" ]]; then
-            echo "    ⚠️  Warning: ARMS file is empty, skipping"
-        fi
-
-        # Process each k-mer size
-        for K in "${K_SIZES_ARRAY[@]}"; do
-            echo "      🔢 Processing k-mer size: $K"
-
-            CEN_OUTPUT="${CHR_DIR}/CEN/${ACCESSION}_CEN_${CHR}_k${K}"
-            ARMS_OUTPUT="${CHR_DIR}/ARMS/${ACCESSION}_ARMS_${CHR}_k${K}"
-
-            # Run KMC on centromere (only if file has content)
-            if [[ -s "$CEN_FILE" ]]; then
-                echo "      ⚙️  Running KMC on centromere..."
-                kmc -fa -k${K} -ci${MIN_COUNT} -cs${MAX_COUNT} -t${THREADS} \
-                    "$CEN_FILE" "$CEN_OUTPUT" "${OUTPUT_DIR}/tmp"
-
-                if [[ $? -eq 0 ]]; then
-                    echo "      ✅ CEN k-mer generation successful"
-                else
-                    echo "      ❌ CEN k-mer generation failed"
-                fi
-            else
-                echo "      ⏭️  Skipping empty CEN file"
+            # Validate input file
+            if [[ ! -f "$CHR_FILE" ]]; then
+                echo "    ⚠️  Warning: CHR file not found, skipping"
+                continue
             fi
 
-            # Run KMC on chromosome arms
-            if [[ -s "$ARMS_FILE" ]]; then
-                echo "      ⚙️  Running KMC on chromosome arms..."
+            # Check if file is empty
+            if [[ ! -s "$CHR_FILE" ]]; then
+                echo "    ⚠️  Warning: CHR file is empty, skipping"
+                continue
+            fi
+
+            # Process each k-mer size
+            for K in "${K_SIZES_ARRAY[@]}"; do
+                echo "      🔢 Processing k-mer size: $K"
+
+                CHR_OUTPUT="${CHR_DIR}/CHR/${ACCESSION}_CHR_${CHR}_k${K}"
+
+                # Run KMC on whole chromosome
+                echo "      ⚙️  Running KMC on chromosome..."
                 kmc -fa -k${K} -ci${MIN_COUNT} -cs${MAX_COUNT} -t${THREADS} \
-                    "$ARMS_FILE" "$ARMS_OUTPUT" "${OUTPUT_DIR}/tmp"
+                    "$CHR_FILE" "$CHR_OUTPUT" "${OUTPUT_DIR}/tmp"
 
                 if [[ $? -eq 0 ]]; then
-                    echo "      ✅ ARMS k-mer generation successful"
+                    echo "      ✅ CHR k-mer generation successful"
                 else
-                    echo "      ❌ ARMS k-mer generation failed"
+                    echo "      ❌ CHR k-mer generation failed"
                 fi
-            else
-                echo "      ⏭️  Skipping empty ARMS file"
+            done
+        else
+            # Original mode: Process CEN and ARMS separately
+            mkdir -p "${CHR_DIR}/CEN"
+            mkdir -p "${CHR_DIR}/ARMS"
+
+            # Input FASTA paths
+            CEN_FILE="${INPUT_DIR}/${ACCESSION}/CEN/${ACCESSION}_CEN_${CHR}.fa"
+            ARMS_FILE="${INPUT_DIR}/${ACCESSION}/ARMS/${ACCESSION}_ARMS_${CHR}.fa"
+
+            echo "    📂 CEN file:  $CEN_FILE"
+            echo "    📂 ARMS file: $ARMS_FILE"
+
+            # Validate input files
+            if [[ ! -f "$CEN_FILE" ]]; then
+                echo "    ⚠️  Warning: CEN file not found, skipping"
+                continue
             fi
-        done
+            if [[ ! -f "$ARMS_FILE" ]]; then
+                echo "    ⚠️  Warning: ARMS file not found, skipping"
+                continue
+            fi
+
+            # Check if files are empty
+            if [[ ! -s "$CEN_FILE" ]]; then
+                echo "    ⚠️  Warning: CEN file is empty, skipping"
+            fi
+            if [[ ! -s "$ARMS_FILE" ]]; then
+                echo "    ⚠️  Warning: ARMS file is empty, skipping"
+            fi
+
+            # Process each k-mer size
+            for K in "${K_SIZES_ARRAY[@]}"; do
+                echo "      🔢 Processing k-mer size: $K"
+
+                CEN_OUTPUT="${CHR_DIR}/CEN/${ACCESSION}_CEN_${CHR}_k${K}"
+                ARMS_OUTPUT="${CHR_DIR}/ARMS/${ACCESSION}_ARMS_${CHR}_k${K}"
+
+                # Run KMC on centromere (only if file has content)
+                if [[ -s "$CEN_FILE" ]]; then
+                    echo "      ⚙️  Running KMC on centromere..."
+                    kmc -fa -k${K} -ci${MIN_COUNT} -cs${MAX_COUNT} -t${THREADS} \
+                        "$CEN_FILE" "$CEN_OUTPUT" "${OUTPUT_DIR}/tmp"
+
+                    if [[ $? -eq 0 ]]; then
+                        echo "      ✅ CEN k-mer generation successful"
+                    else
+                        echo "      ❌ CEN k-mer generation failed"
+                    fi
+                else
+                    echo "      ⏭️  Skipping empty CEN file"
+                fi
+
+                # Run KMC on chromosome arms
+                if [[ -s "$ARMS_FILE" ]]; then
+                    echo "      ⚙️  Running KMC on chromosome arms..."
+                    kmc -fa -k${K} -ci${MIN_COUNT} -cs${MAX_COUNT} -t${THREADS} \
+                        "$ARMS_FILE" "$ARMS_OUTPUT" "${OUTPUT_DIR}/tmp"
+
+                    if [[ $? -eq 0 ]]; then
+                        echo "      ✅ ARMS k-mer generation successful"
+                    else
+                        echo "      ❌ ARMS k-mer generation failed"
+                    fi
+                else
+                    echo "      ⏭️  Skipping empty ARMS file"
+                fi
+            done
+        fi
     done
 
     echo ""

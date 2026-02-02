@@ -17,10 +17,10 @@ This directory contains a complete pipeline for generating **cenhapmers** (centr
 
 The cenhapmer generation pipeline identifies k-mers that are unique to specific chromosome regions of each parent genome. This is accomplished through a four-step process, with an optional fifth step for quality assessment:
 
-1. **Split genomes**: Separate each chromosome into centromere (CEN) and chromosome arm (ARMS) regions
+1. **Split genomes**: Separate each chromosome into centromere (CEN) and chromosome arm (ARMS) regions, OR extract whole chromosomes when centromere annotation is not available (--skip-cen mode)
 2. **Generate k-mers**: Use KMC to count all k-mers in each region
 3. **Create operations**: Generate KMC operation files to find unique k-mers
-4. **Execute operations**: Run KMC complex operations to generate final cenhapmer databases
+4. **Execute operations**: Run KMC complex operations to generate final cenhapmer/hapmer databases
 5. **Analyze markers** (optional): Assess marker density to determine optimal k-mer size
 
 ### What are cenhapmers?
@@ -58,9 +58,11 @@ This uniqueness property allows CHARLA to unambiguously assign F1 hybrid reads t
 
 For each parent genome, you need:
 
-1. **Genome assembly** (FASTA format)
-2. **Centromere annotations** (BED format)
-3. **Chromosome arm annotations** (BED format)
+1. **Genome assembly** (FASTA format) - **Required**
+2. **Centromere annotations** (BED format) - **Optional** (not needed with --skip-cen)
+3. **Chromosome arm annotations** (BED format) - **Optional** (not needed with --skip-cen)
+
+**Note**: If centromere annotations are not available for your organism, you can use the `--skip-cen` flag to generate chromosome-level hapmers instead of region-specific cenhapmers.
 
 ## Quick Start
 
@@ -371,6 +373,30 @@ python3 scripts/04-run_kmc_operations.py \\
     --kmer_sizes 21 \\
     --parallel 4
 ```
+
+### Example 8: Without Centromere Annotation (Chromosome-level Hapmers)
+
+For organisms where centromere annotation is not available (e.g., maize):
+
+```bash
+./generate_cenhapmers.sh \\
+    --parent1 B73 \\
+    --parent2 Mo17 \\
+    --num_chr 10 \\
+    --chr_prefix chr \\
+    --kmer_sizes 21,31 \\
+    --fasta_dir maize/genomes \\
+    --threads 8 \\
+    --parallel 4 \\
+    --skip-cen
+```
+
+This mode:
+- Does NOT require CEN.bed or ARMS.bed files
+- Extracts whole chromosomes from the FASTA files
+- Generates chromosome-level hapmers (unique k-mers per chromosome per parent)
+- Output naming: `unique_${PARENT}_CHR_${CHR}_k${K}.kmc_{pre,suf}`
+- Useful when centromere coordinates are unknown or when chromosome-level resolution is sufficient
 
 ## Output
 

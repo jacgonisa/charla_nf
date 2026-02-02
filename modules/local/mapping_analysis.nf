@@ -25,6 +25,8 @@ process MAPPING_ANALYSIS {
     path "threshold${threshold}/mapping_full_read/${params.sample_id}/nonectopic/*_segments_alnto${params.parent1_name}_alnto${params.parent2_name}/summary_table.csv", emit: summary_tables, optional: true
     path "threshold${threshold}/plotting_crossover/${params.sample_id}/*.paf", emit: paf_files
     path "threshold${threshold}/plotting_crossover/${params.sample_id}/*.cowidths", emit: cowidth_files
+    path "threshold${threshold}/mapping_full_read/${params.sample_id}/nonectopic/*_segments_alnto${params.parent1_name}_alnto${params.parent2_name}/*segments_mm_sr_alnTo_${params.parent1_name}.paf", emit: segment_paf_parent1, optional: true
+    path "threshold${threshold}/mapping_full_read/${params.sample_id}/nonectopic/*_segments_alnto${params.parent1_name}_alnto${params.parent2_name}/*segments_mm_sr_alnTo_${params.parent2_name}.paf", emit: segment_paf_parent2, optional: true
     
     script:
     """
@@ -214,10 +216,14 @@ process MAPPING_ANALYSIS {
     fi
     
     echo "Calculating crossover widths..."
-    
+
     # Calculate CO widths for \${REGION_TYPE}
     if [[ -s "\${ARMS_DIR}/best_best_other_reads.txt" && -s ${arms_bed_file} ]]; then
-        grep -F -f "\${ARMS_DIR}/best_best_other_reads.txt" ${arms_bed_file} > \\
+        # Extract UUIDs from best_best_other_reads.txt (remove segment suffixes like _1_MH2)
+        cut -d'_' -f1 "\${ARMS_DIR}/best_best_other_reads.txt" | sort -u > "\${plotting_base}/best_reads_uuids.txt"
+
+        # Match BED file entries by UUID
+        grep -F -f "\${plotting_base}/best_reads_uuids.txt" ${arms_bed_file} > \\
             "\${plotting_base}/CANDIDATE_reads_nonectopic_\${REGION_TYPE}.bed_of_best.tsv" || \\
             touch "\${plotting_base}/CANDIDATE_reads_nonectopic_\${REGION_TYPE}.bed_of_best.tsv"
 
@@ -235,7 +241,11 @@ process MAPPING_ANALYSIS {
 
     # Calculate CO widths for CEN (only in centromere-aware mode)
     if [[ "\${REGION_TYPE}" == "ARMS" ]] && [[ -s "\${CEN_DIR}/best_best_other_reads.txt" && -s ${cen_bed_file} ]]; then
-        grep -F -f "\${CEN_DIR}/best_best_other_reads.txt" ${cen_bed_file} > \\
+        # Extract UUIDs from best_best_other_reads.txt for CEN
+        cut -d'_' -f1 "\${CEN_DIR}/best_best_other_reads.txt" | sort -u > "\${plotting_base}/best_reads_uuids_cen.txt"
+
+        # Match BED file entries by UUID for CEN
+        grep -F -f "\${plotting_base}/best_reads_uuids_cen.txt" ${cen_bed_file} > \\
             "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv" || \\
             touch "\${plotting_base}/CANDIDATE_reads_nonectopic_CEN.bed_of_best.tsv"
 

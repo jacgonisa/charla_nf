@@ -35,13 +35,13 @@ from pathlib import Path
 
 
 def generate_operation_files(input_dir, output_dir, parent1, parent2, num_chr,
-                            chr_prefix, kmer_sizes):
+                            chr_prefix, kmer_sizes, skip_cen=False):
     """Generate KMC operation files for finding unique k-mers"""
 
     # Generate accessions and chromosomes lists
     accessions = [parent1, parent2]
     chromosomes = [f"{chr_prefix}{i}" for i in range(1, num_chr + 1)]
-    regions = ["CEN", "ARMS"]
+    regions = ["CHR"] if skip_cen else ["CEN", "ARMS"]
 
     print(f"\n=== KMC Operation File Generation ===")
     print(f"Input directory:  {input_dir}")
@@ -50,6 +50,7 @@ def generate_operation_files(input_dir, output_dir, parent1, parent2, num_chr,
     print(f"Chromosomes:      {', '.join(chromosomes)}")
     print(f"Regions:          {', '.join(regions)}")
     print(f"K-mer sizes:      {', '.join(map(str, kmer_sizes))}")
+    print(f"Skip centromeres: {skip_cen}")
     print(f"=====================================\n")
 
     # Create output directory
@@ -141,6 +142,8 @@ def main():
                        help='Chromosome prefix (default: Chr)')
     parser.add_argument('--kmer_sizes', default='21,31,41',
                        help='Comma-separated k-mer sizes (default: 21,31,41)')
+    parser.add_argument('--skip-cen', action='store_true',
+                       help='Skip centromere annotation (generate chromosome-level hapmers only)')
 
     args = parser.parse_args()
 
@@ -154,7 +157,8 @@ def main():
         args.parent2,
         args.num_chr,
         args.chr_prefix,
-        kmer_sizes
+        kmer_sizes,
+        skip_cen=args.skip_cen
     )
 
 

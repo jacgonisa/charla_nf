@@ -16,6 +16,7 @@ Options:
     --num_chr N            Number of chromosomes (default: 5)
     --chr_prefix PREFIX    Chromosome prefix (default: Chr)
     --window_size N        Window size for binning in bp (default: 10000)
+    --skip-cen             Skip centromere mode (chromosome-level hapmers)
     --help                 Show this help message
 
 Requirements:
@@ -67,10 +68,13 @@ def read_histogram_file(hist_file):
         return 0
 
 
-def collect_marker_statistics(marker_dir, parent1, parent2, kmer_sizes, num_chr, chr_prefix):
+def collect_marker_statistics(marker_dir, parent1, parent2, kmer_sizes, num_chr, chr_prefix, skip_cen=False):
     """Collect marker statistics from all cenhapmer databases"""
 
     results = []
+
+    # Determine regions based on mode
+    regions = ['CHR'] if skip_cen else ['CEN', 'ARMS']
 
     for k in kmer_sizes:
         k_dir = os.path.join(marker_dir, f"k{k}")
@@ -85,8 +89,8 @@ def collect_marker_statistics(marker_dir, parent1, parent2, kmer_sizes, num_chr,
             for chr_num in range(1, num_chr + 1):
                 chr_name = f"{chr_prefix}{chr_num}"
 
-                # Process CEN and ARMS regions
-                for region in ['CEN', 'ARMS']:
+                # Process regions (CEN/ARMS or CHR)
+                for region in regions:
                     base_name = f"unique_{parent}_{region}_{chr_name}_k{k}"
                     hist_file = os.path.join(k_dir, f"{base_name}.counts.hist")
 
@@ -346,6 +350,8 @@ def main():
                        help='Number of chromosomes (default: 5)')
     parser.add_argument('--chr_prefix', default='Chr',
                        help='Chromosome prefix (default: Chr)')
+    parser.add_argument('--skip-cen', action='store_true',
+                       help='Skip centromere mode (chromosome-level hapmers)')
 
     args = parser.parse_args()
 
@@ -362,6 +368,7 @@ def main():
     print(f"Output directory: {args.output_dir}")
     print(f"Parents:          {args.parent1}, {args.parent2}")
     print(f"K-mer sizes:      {', '.join(map(str, kmer_sizes))}")
+    print(f"Skip centromeres: {args.skip_cen}")
     print("="*70 + "\n")
 
     # Collect marker statistics
@@ -372,7 +379,8 @@ def main():
         args.parent2,
         kmer_sizes,
         args.num_chr,
-        args.chr_prefix
+        args.chr_prefix,
+        skip_cen=args.skip_cen
     )
 
     if df.empty:
