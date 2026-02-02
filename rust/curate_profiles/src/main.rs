@@ -3,6 +3,7 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::collections::HashSet;
 use regex::Regex;
+use rayon::prelude::*;
 
 #[derive(Debug)]
 struct ProfileEntry {
@@ -260,55 +261,101 @@ fn process_read(readname: &str, raw_profile: &str, thresholds: &[i32], readmer_c
 
 fn main() -> std::io::Result<()> {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 4 {
-        eprintln!("Usage: {} <input_file> <output_file> <readmer_cutoff>", args[0]);
+    if args.len() < 4 || args.len() > 5 {
+        eprintln!("Usage: {} <input_file> <output_file> <readmer_cutoff> [num_threads]", args[0]);
         std::process::exit(1);
     }
-    
+
     let input_file = &args[1];
     let output_file = &args[2];
     let readmer_cutoff: i32 = args[3].parse().expect("Invalid readmer_cutoff");
+
+    // Set number of threads (default to all available cores)
+    if args.len() == 5 {
+        let num_threads: usize = args[4].parse().expect("Invalid num_threads");
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build_global()
+            .unwrap();
+        eprintln!("Using {} threads for parallel processing", num_threads);
+    }
+
     let thresholds = [10, 20, 30, 35, 40, 45, 50, 75, 100];
-    
+
+    // CHUNK-BASED PROCESSING: Process in chunks to limit memory usage
+    // Chunk size: number of reads to process at once (adjust based on available memory)
+    const CHUNK_SIZE: usize = 50000; // Process 50k reads at a time (~500MB-1GB per chunk)
+
+    eprintln!("Processing input file in chunks of {} reads...", CHUNK_SIZE);
+
     let file = File::open(input_file)?;
     let reader = BufReader::new(file);
-    
+    let mut lines = reader.lines();
+
     let output = File::create(output_file)?;
     let mut writer = BufWriter::new(output);
-    
+
     // Write header
     writeln!(writer, "readname\tthreshold\tcurated_profile\tsuper_curated_profile\tultra_curated_profile\thybrid\thybrid_type\tectopic")?;
-    
-    let mut lines = reader.lines();
-    let mut line_count = 0;
-    
-    while let Some(line) = lines.next() {
-        let line = line?;
-        line_count += 1;
-        
-        if line.starts_with('>') {
-            let readname = line[1..].trim();
-            
-            if let Some(profile_line) = lines.next() {
-                let raw_profile = profile_line?;
-                line_count += 1;
-                
-                // Process this read and write results immediately
-                for row in process_read(readname, &raw_profile, &thresholds, readmer_cutoff) {
-                    writeln!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}", 
-                            row.0, row.1, row.2, row.3, row.4, row.5, row.6, row.7)?;
+
+    let mut total_processed = 0usize;
+    let mut chunk_number = 0usize;
+
+    loop {
+        // Read a chunk of reads
+        let mut read_chunk = Vec::with_capacity(CHUNK_SIZE);
+
+        for _ in 0..CHUNK_SIZE {
+            if let Some(line) = lines.next() {
+                let line = line?;
+
+                if line.starts_with('>') {
+                    let readname = line[1..].trim().to_string();
+
+                    if let Some(profile_line) = lines.next() {
+                        let raw_profile = profile_line?;
+                        read_chunk.push((readname, raw_profile));
+                    }
                 }
-                
-                // Progress indicator every 10000 reads
-                if line_count % 20000 == 0 {
-                    eprintln!("Processed {} lines...", line_count);
-                }
+            } else {
+                break; // End of file
             }
         }
+
+        if read_chunk.is_empty() {
+            break; // No more reads to process
+        }
+
+        chunk_number += 1;
+        let chunk_size = read_chunk.len();
+        eprintln!("Processing chunk {} ({} reads)...", chunk_number, chunk_size);
+
+        // Process this chunk in parallel
+        let chunk_results: Vec<Vec<(String, i32, String, String, String, String, String, String)>> =
+            read_chunk.par_iter()
+                .map(|(readname, raw_profile)| {
+                    process_read(readname, raw_profile, &thresholds, readmer_cutoff)
+                })
+                .collect();
+
+        // Write chunk results immediately (stream to disk, don't accumulate)
+        for read_results in chunk_results {
+            for row in read_results {
+                writeln!(writer, "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                        row.0, row.1, row.2, row.3, row.4, row.5, row.6, row.7)?;
+            }
+        }
+
+        total_processed += chunk_size;
+        eprintln!("Completed {} reads total", total_processed);
+
+        // Clear the chunk to free memory before next iteration
+        drop(read_chunk);
     }
-    
+
     writer.flush()?;
-    println!("TSV file '{}' created.", output_file);
-    
+    eprintln!("TSV file '{}' created successfully.", output_file);
+    eprintln!("Total reads processed: {}", total_processed);
+
     Ok(())
 }

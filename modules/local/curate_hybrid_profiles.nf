@@ -3,10 +3,15 @@ nextflow.enable.dsl=2
 process CURATE_HYBRID_PROFILES {
     tag "curate_hybrid_profiles"
     label 'python_processing'
-    cpus params.curate_cpus ?: 4
-    memory params.curate_memory ?: '16 GB'
-    time params.curate_time ?: '2h'
-    
+    cpus params.curate_cpus ?: 8
+    memory params.curate_memory ?: '8 GB'
+    time params.curate_time ?: '4h'
+
+    // PERFORMANCE NOTE: This process uses multi-threaded Rust implementation (Rayon)
+    // with chunk-based processing (50k reads/chunk) to balance speed and memory usage.
+    // Expected speedup: ~6-10x faster with 8 cores. Increase curate_cpus for more speed.
+    // Memory usage: ~1-2GB per chunk + overhead. See docs/PERFORMANCE_OPTIMIZATION.md
+
     // Define output prefix based on sample
     def output_prefix = "curated_hybrid_${params.sample_id}"
     
@@ -45,7 +50,8 @@ echo "Arg 3: ${readmer_cutoff}"
     ${projectDir}/rust/curate_profiles/target/release/curate_profiles \\
         ${hybrid_profiles_file} \\
         ${output_prefix}_ultracurated.tsv \\
-        ${readmer_cutoff}
+        ${readmer_cutoff} \\
+        ${task.cpus}
 
 
     
