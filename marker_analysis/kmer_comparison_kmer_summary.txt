@@ -1,0 +1,117 @@
+K-MER SIZE COMPARISON SUMMARY
+======================================================================
+
+
+K-MER SIZE: 21
+----------------------------------------------------------------------
+
+Parent Totals:
+  Col-0: 17,583,204 markers
+  Ler-0: 17,545,367 markers
+
+  Imbalance: 0.2% (1.00:1)
+  Status: ✓ Well-balanced
+
+Region Breakdown:
+region_type      ARMS     CEN
+parent                       
+Col-0        17351189  232015
+Ler-0        17269816  275551
+
+Marker Density (markers/Mb):
+  Col-0: 130,674.8
+  Ler-0: 130,438.4
+
+K-MER SIZE: 25
+----------------------------------------------------------------------
+
+Parent Totals:
+  Col-0: 20,246,237 markers
+  Ler-0: 20,253,793 markers
+
+  Imbalance: 0.0% (1.00:1)
+  Status: ✓ Well-balanced
+
+Region Breakdown:
+region_type      ARMS     CEN
+parent                       
+Col-0        19920932  325305
+Ler-0        19884579  369214
+
+Marker Density (markers/Mb):
+  Col-0: 150,465.9
+  Ler-0: 150,573.8
+
+K-MER SIZE: 31
+----------------------------------------------------------------------
+
+Parent Totals:
+  Col-0: 23,751,681 markers
+  Ler-0: 23,820,327 markers
+
+  Imbalance: 0.3% (1.00:1)
+  Status: ✓ Well-balanced
+
+Region Breakdown:
+region_type      ARMS     CEN
+parent                       
+Col-0        23265068  486613
+Ler-0        23292486  527841
+
+Marker Density (markers/Mb):
+  Col-0: 176,517.6
+  Ler-0: 177,088.6
+
+K-MER SIZE: 35
+----------------------------------------------------------------------
+
+Parent Totals:
+  Col-0: 25,896,118 markers
+  Ler-0: 25,999,751 markers
+
+  Imbalance: 0.4% (1.00:1)
+  Status: ✓ Well-balanced
+
+Region Breakdown:
+region_type      ARMS     CEN
+parent                       
+Col-0        25290098  606020
+Ler-0        25355662  644089
+
+Marker Density (markers/Mb):
+  Col-0: 192,454.7
+  Ler-0: 193,291.2
+
+K-MER SIZE: 41
+----------------------------------------------------------------------
+
+Parent Totals:
+  Col-0: 28,885,459 markers
+  Ler-0: 29,035,230 markers
+
+  Imbalance: 0.5% (1.01:1)
+  Status: ✓ Well-balanced
+
+Region Breakdown:
+region_type      ARMS     CEN
+parent                       
+Col-0        28085805  799654
+Ler-0        28205202  830028
+
+Marker Density (markers/Mb):
+  Col-0: 214,670.8
+  Ler-0: 215,858.0
+
+
+======================================================================
+OVERALL RECOMMENDATIONS
+======================================================================
+
+Best balanced k-mer size: k=25
+  (Lowest parent imbalance: 0.0%)
+
+General guidelines:
+  - Higher k: More unique markers, less error-tolerant
+  - Lower k: Fewer markers, more robust to sequencing errors
+  - For long reads (ONT): Consider k=21 or k=25
+  - For high-quality reads: Consider k=31 or higher
