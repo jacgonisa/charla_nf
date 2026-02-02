@@ -30,13 +30,19 @@ include { CURATE_HYBRID_PROFILES } from '../modules/local/curate_hybrid_profiles
 include { SEGMENT_READS } from '../modules/local/segment_reads.nf'
 include { MAPPING_ANALYSIS } from '../modules/local/mapping_analysis.nf'
 include { PLOT_CROSSOVER_MAP } from '../modules/local/plot_crossover_map.nf'
-include { CROSSOVER_STATS as CROSSOVER_STATS_PROFILES } from '../modules/local/crossover_stats.nf'
-include { CROSSOVER_STATS as CROSSOVER_STATS_MAPPING } from '../modules/local/crossover_stats.nf'
-include { CURATE_CONFIDENT_READS } from '../modules/local/curate_confident_reads.nf'
-include { CREATE_COMPREHENSIVE_ALIGNMENT_OUTPUT } from '../modules/local/create_comprehensive_alignment_output.nf'
-include { PLOT_CONFIDENT_READS } from '../modules/local/plot_confident_reads.nf'
-include { KARYOPLOT_CROSSOVERS } from '../modules/local/karyoplot_crossovers.nf'
 include { NON_HYBRID_READS_ANALYSIS } from '../modules/local/non_hybrid_reads_analysis.nf'
+
+// Post-mapping analysis modules (INTEGRATED into pipeline)
+// These are in postmapping_analysis/ folder but integrated here
+include { CROSSOVER_STATS as CROSSOVER_STATS_PROFILES } from '../postmapping_analysis/modules/crossover_stats.nf'
+include { CROSSOVER_STATS as CROSSOVER_STATS_MAPPING } from '../postmapping_analysis/modules/crossover_stats.nf'
+include { CURATE_CONFIDENT_READS } from '../postmapping_analysis/modules/curate_confident_reads.nf'
+include { CREATE_COMPREHENSIVE_ALIGNMENT_OUTPUT } from '../postmapping_analysis/modules/create_comprehensive_alignment_output.nf'
+
+// Post-mapping analysis modules (NOT YET INTEGRATED - available for manual use)
+// Uncomment these when ready to integrate visualization into pipeline:
+// include { PLOT_CONFIDENT_READS } from '../postmapping_analysis/modules/plot_confident_reads.nf'
+// include { KARYOPLOT_CROSSOVERS } from '../postmapping_analysis/modules/karyoplot_crossovers.nf'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -655,7 +661,9 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     // Centromere BED file (optional)
     def cen_bed_val = (params.parent1_bed && file(params.parent1_bed).exists()) ? file(params.parent1_bed) : "NO_FILE"
 
-    // Run plotting module unconditionally - R script handles missing files
+    // TODO: PLOT_CONFIDENT_READS module not yet integrated
+    // Uncomment when ready to integrate visualization
+    /*
     confident_plots_output = PLOT_CONFIDENT_READS(
         confident_bed_sco,
         confident_bed_nco,
@@ -673,6 +681,8 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         params.parent2_name,
         cen_bed_val
     )
+    */
+    log.info "⏩ Skipping PLOT_CONFIDENT_READS (not yet integrated - available in postmapping_analysis/)"
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -710,7 +720,9 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
         log.warn "⚠️  Skipping karyoplot generation. Generate with: samtools faidx ${params.parent2_name}.fa"
     }
 
-    // Only run karyoplot if both .fai files exist
+    // TODO: KARYOPLOT_CROSSOVERS module not yet integrated
+    // Uncomment when ready to integrate karyoplot visualization
+    /*
     if (both_fai_exist_karyo) {
         parent1_fai = Channel.fromPath(parent1_fai_karyo_path)
         parent2_fai = Channel.fromPath(parent2_fai_karyo_path)
@@ -728,6 +740,8 @@ get_counts_cenhapmer_kmc_output = get_counts_cenhapmer_kmc(cenhapmer_parallel_in
     } else {
         log.info "⏩ Skipping karyoplot generation (genome index files not found)"
     }
+    */
+    log.info "⏩ Skipping KARYOPLOT_CROSSOVERS (not yet integrated - available in postmapping_analysis/)"
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

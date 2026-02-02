@@ -2,6 +2,23 @@
 
 This module contains scripts and tools for analyzing crossover reads **after** alignment to reference genomes. This is the "AFTER CHARLA" step that provides detailed single-read level analysis, statistics, and visualization.
 
+## ⚡ Quick Start - Integration Status
+
+**IMPORTANT**: Some modules are **INTEGRATED** into the main pipeline, others are **STANDALONE**.
+
+📋 **See [INTEGRATION_STATUS.md](INTEGRATION_STATUS.md) for details on which modules run automatically vs manually!**
+
+### What Runs Automatically?
+✅ Crossover statistics (script 14)
+✅ Confident reads curation (script 15)
+✅ **Comprehensive alignment output** (script 19) ← **Most important!**
+
+### What Requires Manual Use?
+⚠️ Visualization (karyoplots, circos plots)
+⚠️ Single chromosome plots
+
+---
+
 ## Overview
 
 While the main CHARLA pipeline (in `charla_nf.nf`) identifies crossover reads using k-mer analysis, this module provides:
@@ -14,9 +31,13 @@ While the main CHARLA pipeline (in `charla_nf.nf`) identifies crossover reads us
 
 ```
 postmapping_analysis/
-├── scripts/          # R scripts for analysis and visualization
-├── modules/          # Nextflow modules (optional integration)
-└── README.md         # This file
+├── scripts/               # R scripts for analysis and visualization
+├── modules/               # Nextflow modules (some integrated, some standalone)
+├── README.md              # This file
+├── INTEGRATION_STATUS.md  # 📋 Which modules are integrated vs standalone
+├── EXAMPLES.md            # Real data examples and results
+├── COMPARISON.md          # Before/after comparison with standard CHARLA
+└── TODO.md                # Future integration plans
 ```
 
 ## Scripts
